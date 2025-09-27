@@ -2,7 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, LogBox } from 'react-native';
+
+// Suppress specific warnings and red box errors in development
+if (__DEV__) {
+  LogBox.ignoreLogs([
+    'Warning:', 
+    'Firebase:', 
+    'auth/invalid-credential',
+    'auth/user-not-found',
+    'auth/wrong-password',
+    '@firebase/auth: Auth',
+    'AsyncStorage',
+  ]);
+}
 
 // Import screens
 import AuthScreen from './src/screens/AuthScreen';
@@ -13,6 +26,21 @@ import MonitoringTabs from './src/screens/monitoring/MonitoringTabs';
 // Import services
 import { AuthService } from './src/services/AuthService';
 import { User, UserRole } from './src/types/User';
+
+// Global error handler to prevent red screen errors
+if (__DEV__) {
+  const originalConsoleError = console.error;
+  console.error = (...args) => {
+    // Only log Firebase auth errors silently
+    const message = args[0]?.toString() || '';
+    if (message.includes('Firebase') || message.includes('auth/')) {
+      console.log('🔥 Firebase Auth Info:', args[1]?.code || message);
+      return;
+    }
+    // Show other errors normally
+    originalConsoleError(...args);
+  };
+}
 
 const Stack = createNativeStackNavigator();
 

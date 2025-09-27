@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@RequestMapping("/emergencies")
+@RequestMapping("/emergency")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class EmergencyController {
 

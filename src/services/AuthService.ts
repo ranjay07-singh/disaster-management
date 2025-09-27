@@ -4,6 +4,7 @@ import {
   signOut, 
   onAuthStateChanged,
   updateProfile,
+  sendPasswordResetEmail,
   User as FirebaseUser
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
@@ -45,7 +46,10 @@ export class AuthService {
 
       return user;
     } catch (error) {
-      console.error('Registration error:', error);
+      // Log silently in development mode only
+      if (__DEV__) {
+        console.log('Registration error:', (error as any)?.code || (error as any)?.message);
+      }
       throw error;
     }
   }
@@ -67,7 +71,10 @@ export class AuthService {
 
       return userData;
     } catch (error) {
-      console.error('Login error:', error);
+      // Log silently in development mode only
+      if (__DEV__) {
+        console.log('Login error:', (error as any)?.code || (error as any)?.message);
+      }
       throw error;
     }
   }
@@ -77,7 +84,10 @@ export class AuthService {
       await signOut(auth);
       await AsyncStorage.removeItem('userData');
     } catch (error) {
-      console.error('Logout error:', error);
+      // Log silently in development mode only
+      if (__DEV__) {
+        console.log('Logout error:', (error as any)?.code || (error as any)?.message);
+      }
       throw error;
     }
   }
@@ -106,7 +116,9 @@ export class AuthService {
                 resolve(null);
               }
             } catch (error) {
-              console.error('Error fetching user data:', error);
+              if (__DEV__) {
+                console.log('Error fetching user data:', (error as any)?.code || (error as any)?.message);
+              }
               resolve(null);
             }
           } else {
@@ -115,7 +127,9 @@ export class AuthService {
         });
       });
     } catch (error) {
-      console.error('Get current user error:', error);
+      if (__DEV__) {
+        console.log('Get current user error:', (error as any)?.code || (error as any)?.message);
+      }
       return null;
     }
   }
@@ -135,7 +149,9 @@ export class AuthService {
         await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
       }
     } catch (error) {
-      console.error('Update profile error:', error);
+      if (__DEV__) {
+        console.log('Update profile error:', (error as any)?.code || (error as any)?.message);
+      }
       throw error;
     }
   }
@@ -150,7 +166,20 @@ export class AuthService {
 
       await this.updateUserProfile(userId, updateData);
     } catch (error) {
-      console.error('Switch role error:', error);
+      if (__DEV__) {
+        console.log('Switch role error:', (error as any)?.code || (error as any)?.message);
+      }
+      throw error;
+    }
+  }
+
+  static async resetPassword(email: string): Promise<void> {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      if (__DEV__) {
+        console.log('Password reset error:', (error as any)?.code || (error as any)?.message);
+      }
       throw error;
     }
   }

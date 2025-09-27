@@ -42,3 +42,13 @@ yarn-error.*
 
 # Firebase API config
 src/services/firebase.ts
+
+# backend
+backend/DEPLOYMENT_GUIDE.md
+test-db-connection.js
+NEXT_STEPS_ROADMAP.md
+MONITORING_PROFILE_IMPROVEMENTS.md
+AWS_PHASE2_SETUP_GUIDE.md
+AWS_BACKEND_SETUP_GUIDE.md
+API_GATEWAY_COMPLETE.md
+api-gateway-config.json
