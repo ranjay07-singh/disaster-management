@@ -11,38 +11,90 @@ import {
 import { SimpleMap, SimpleMarker } from '../../components/SimpleMap';
 import { Ionicons } from '@expo/vector-icons';
 import { User, EmergencyRequest, DisasterType } from '../../types/User';
+import { ApiService } from '../../services/ApiService';
+import { useEmergency } from '../../contexts/EmergencyContext';
 
 interface ProvideHelpScreenProps {
   user: User;
 }
 
 const ProvideHelpScreen: React.FC<ProvideHelpScreenProps> = ({ user }) => {
-  const [activeRequest, setActiveRequest] = useState<EmergencyRequest | null>(null);
+  const { activeEmergency } = useEmergency();
+  const [activeRequest, setActiveRequest] = useState<EmergencyRequest | null>(activeEmergency || null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [helpStatus, setHelpStatus] = useState<'en-route' | 'arrived' | 'helping' | 'completed'>('en-route');
 
   useEffect(() => {
-    // Mock active request - In real app, this would come from props or context
-    const mockRequest: EmergencyRequest = {
-      id: 'req_1',
-      victimId: 'victim_1',
-      disasterType: DisasterType.FIRE,
-      location: {
-        latitude: 28.7041,
-        longitude: 77.1025,
-        address: 'Connaught Place, New Delhi, Delhi 110001',
-      },
-      description: 'Building fire on 3rd floor, people trapped. Smoke visible from street level.',
-      severity: 'high',
-      status: 'assigned',
-      assignedVolunteers: [user.id],
-      governmentAgenciesNotified: ['fire_dept_delhi', 'ambulance_delhi'],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    setActiveRequest(mockRequest);
-  }, []);
+    // Update when context changes
+    if (activeEmergency) {
+      setActiveRequest(activeEmergency);
+    } else {
+      // Load active emergency from API if not in context
+      loadActiveEmergency();
+    }
+  }, [activeEmergency]);
+
+  const loadActiveEmergency = async () => {
+    if (activeEmergency) {
+      setActiveRequest(activeEmergency);
+      return;
+    }
+
+    try {
+      // Fetch emergencies assigned to this volunteer
+      const emergencies = await ApiService.getAllEmergencies();
+      const emergencyList = Array.isArray(emergencies) 
+        ? emergencies 
+        : ((emergencies as any)?.emergencies || []);
+      
+      // Find emergency assigned to this volunteer that's not completed
+      const myActiveEmergency = emergencyList.find((e: any) => 
+        (e.status === 'assigned' || e.status === 'in_progress') &&
+        e.assignedVolunteers?.includes(user.id)
+      );
+
+      if (myActiveEmergency) {
+        const formattedEmergency: EmergencyRequest = {
+          id: myActiveEmergency.id.toString(),
+          victimId: myActiveEmergency.victimId?.toString() || 'unknown',
+          disasterType: (myActiveEmergency.caseType || myActiveEmergency.disasterType) as DisasterType,
+          location: {
+            latitude: myActiveEmergency.locationLat || myActiveEmergency.latitude || 0,
+            longitude: myActiveEmergency.locationLng || myActiveEmergency.longitude || 0,
+            address: myActiveEmergency.locationAddress || myActiveEmergency.location || 'Address unavailable',
+          },
+          description: myActiveEmergency.description || 'Emergency assistance needed',
+          severity: mapSeverityLevel(myActiveEmergency.severityLevel || myActiveEmergency.severity),
+          status: myActiveEmergency.status,
+          assignedVolunteers: myActiveEmergency.assignedVolunteers || [user.id],
+          governmentAgenciesNotified: myActiveEmergency.governmentAgenciesNotified || [],
+          createdAt: new Date(myActiveEmergency.createdAt),
+          updatedAt: new Date(myActiveEmergency.updatedAt || myActiveEmergency.createdAt),
+        };
+        setActiveRequest(formattedEmergency);
+      }
+    } catch (error) {
+      console.error('Failed to load active emergency:', error);
+    }
+  };
+
+  const mapSeverityLevel = (level: any): 'low' | 'medium' | 'high' | 'critical' => {
+    if (typeof level === 'string') {
+      const normalizedLevel = level.toLowerCase();
+      if (['low', 'medium', 'high', 'critical'].includes(normalizedLevel)) {
+        return normalizedLevel as 'low' | 'medium' | 'high' | 'critical';
+      }
+      return 'medium';
+    }
+    switch (level) {
+      case 5: return 'critical';
+      case 4: return 'high';
+      case 3: return 'medium';
+      case 2: return 'low';
+      case 1: return 'low';
+      default: return 'medium';
+    }
+  };
 
   const openGoogleMaps = () => {
     if (!activeRequest) return;
@@ -81,6 +133,32 @@ const ProvideHelpScreen: React.FC<ProvideHelpScreenProps> = ({ user }) => {
       'Thank you for your service! The victim will be able to rate your assistance.',
       [
         { text: 'OK', onPress: () => setActiveRequest(null) }
+      ]
+    );
+  };
+
+  const handleQuickCall = async (phoneNumber: string, serviceName: string) => {
+    Alert.alert(
+      'Make Call',
+      `Call ${serviceName}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Call',
+          onPress: async () => {
+            const phoneUrl = `tel:${phoneNumber}`;
+            const canOpen = await Linking.canOpenURL(phoneUrl);
+            
+            if (canOpen) {
+              await Linking.openURL(phoneUrl);
+            } else {
+              Alert.alert('Error', 'Cannot make phone calls on this device');
+            }
+          },
+        },
       ]
     );
   };
@@ -174,10 +252,10 @@ const ProvideHelpScreen: React.FC<ProvideHelpScreenProps> = ({ user }) => {
           />
           <View style={styles.emergencyDetails}>
             <Text style={styles.emergencyType}>
-              {activeRequest.disasterType.toUpperCase()} EMERGENCY
+              {activeRequest.disasterType?.toUpperCase() || 'UNKNOWN'} EMERGENCY
             </Text>
             <Text style={[styles.severityText, { color: getSeverityColor(activeRequest.severity) }]}>
-              {activeRequest.severity.toUpperCase()} PRIORITY
+              {activeRequest.severity?.toUpperCase() || 'UNKNOWN'} PRIORITY
             </Text>
           </View>
         </View>
@@ -213,7 +291,7 @@ const ProvideHelpScreen: React.FC<ProvideHelpScreenProps> = ({ user }) => {
                 styles.statusLabel,
                 helpStatus === status && styles.activeLabel
               ]}>
-                {status.replace('-', ' ').toUpperCase()}
+                {status?.replace('-', ' ').toUpperCase() || 'UNKNOWN'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -305,22 +383,34 @@ const ProvideHelpScreen: React.FC<ProvideHelpScreenProps> = ({ user }) => {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         
         <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={styles.quickActionButton}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => handleQuickCall('112', 'Emergency Services (112)')}
+          >
             <Ionicons name="call" size={24} color="white" />
             <Text style={styles.quickActionText}>Call 112</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.quickActionButton}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => handleQuickCall('108', 'Ambulance (108)')}
+          >
             <Ionicons name="medical" size={24} color="white" />
             <Text style={styles.quickActionText}>Medical</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.quickActionButton}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => handleQuickCall('102', 'Transport Ambulance (102)')}
+          >
             <Ionicons name="car" size={24} color="white" />
             <Text style={styles.quickActionText}>Transport</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.quickActionButton}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => Alert.alert('Report Issue', 'Report additional details about this emergency.')}
+          >
             <Ionicons name="warning" size={24} color="white" />
             <Text style={styles.quickActionText}>Report</Text>
           </TouchableOpacity>

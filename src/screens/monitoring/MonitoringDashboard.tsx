@@ -10,6 +10,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User, EmergencyRequest, DisasterType } from '../../types/User';
+import { ApiService } from '../../services/ApiService';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { firestore } from '../../services/firebase';
+import UserManagement from './UserManagement';
+import { useIsFocused } from '@react-navigation/native';
 
 interface MonitoringDashboardProps {
   user: User;
@@ -23,56 +28,148 @@ interface DashboardStats {
 }
 
 const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ user }) => {
+  const isFocused = useIsFocused(); // Hook to detect when screen is focused
+  
   const [stats, setStats] = useState<DashboardStats>({
-    activeEmergencies: 5,
-    totalVolunteers: 127,
-    totalUsers: 2458,
-    resolvedToday: 12,
+    activeEmergencies: 0,
+    totalVolunteers: 0,
+    totalUsers: 0,
+    resolvedToday: 0,
   });
 
   const [activeEmergencies, setActiveEmergencies] = useState<EmergencyRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<'dashboard' | 'userManagement'>('dashboard');
 
   useEffect(() => {
-    // Mock data - In real app, fetch from backend
-    const mockEmergencies: EmergencyRequest[] = [
-      {
-        id: 'req_1',
-        victimId: 'victim_1',
-        disasterType: DisasterType.FIRE,
-        location: {
-          latitude: 28.7041,
-          longitude: 77.1025,
-          address: 'Connaught Place, New Delhi',
-        },
-        description: 'Building fire on 3rd floor',
-        severity: 'high',
-        status: 'in_progress',
-        assignedVolunteers: ['vol_1', 'vol_2'],
-        governmentAgenciesNotified: ['fire_dept'],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: 'req_2',
-        victimId: 'victim_2',
-        disasterType: DisasterType.ROAD_ACCIDENT,
-        location: {
-          latitude: 28.6139,
-          longitude: 77.2090,
-          address: 'India Gate, New Delhi',
-        },
-        description: 'Car accident, two vehicles involved',
-        severity: 'medium',
-        status: 'pending',
-        assignedVolunteers: [],
-        governmentAgenciesNotified: ['police'],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-    
-    setActiveEmergencies(mockEmergencies);
-  }, []);
+    if (isFocused) {
+      console.log('🎯 Dashboard is now focused, loading data...');
+      loadDashboardData();
+    }
+  }, [isFocused]); // Reload whenever the screen comes into focus
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 MonitoringDashboard: Starting to load dashboard data...');
+      
+      // Fetch users from Firebase Firestore (same as UserManagement)
+      const usersCollection = collection(firestore, 'users');
+      const querySnapshot = await getDocs(usersCollection);
+      
+      console.log('📊 Total Firebase documents:', querySnapshot.size);
+      
+      let totalVictims = 0;
+      let totalVolunteers = 0;
+      
+      querySnapshot.forEach((doc) => {
+        const userData = doc.data();
+        console.log('👤 User:', doc.id, 'Role:', userData.role);
+        
+        // Count only VICTIM and VOLUNTEER roles (case-insensitive)
+        const role = userData.role?.toUpperCase();
+        if (role === 'VOLUNTEER') {
+          totalVolunteers++;
+        } else if (role === 'VICTIM') {
+          totalVictims++;
+        }
+      });
+      
+      const totalUsers = totalVictims + totalVolunteers;
+      
+      console.log('✅ Counted:', { totalVictims, totalVolunteers, totalUsers });
+
+      // Fetch emergencies from backend
+      console.log('🚨 Fetching emergencies from backend...');
+      console.log('🔗 API Endpoint:', `${ApiService['baseUrl']}/emergency`);
+      const emergenciesResponse = await ApiService.getAllEmergencies();
+      console.log('📦 Emergencies response:', emergenciesResponse);
+      console.log('📦 Response type:', typeof emergenciesResponse);
+      console.log('📦 Is Array?:', Array.isArray(emergenciesResponse));
+      
+      // Extract emergencies array from response
+      const emergencyList = Array.isArray(emergenciesResponse) 
+        ? emergenciesResponse 
+        : ((emergenciesResponse as any)?.emergencies || (emergenciesResponse as any)?.data || []);
+      
+      console.log('📋 Emergency list:', emergencyList.length, 'emergencies');
+      console.log('📋 Emergency details:', JSON.stringify(emergencyList, null, 2));
+
+      // Calculate stats (case-insensitive status check)
+      const activeEmergenciesCount = emergencyList.filter((e: any) => {
+        const status = e.status?.toUpperCase();
+        return status === 'ACTIVE' || status === 'PENDING';
+      }).length;
+
+      const today = new Date().toDateString();
+      const resolvedToday = emergencyList.filter((e: any) => {
+        const status = e.status?.toUpperCase();
+        const isResolved = status === 'COMPLETED' || status === 'RESOLVED';
+        const updatedToday = new Date(e.updatedAt || e.resolvedAt).toDateString() === today;
+        return isResolved && updatedToday;
+      }).length;
+
+      // Update stats
+      setStats({
+        activeEmergencies: activeEmergenciesCount,
+        totalVolunteers: totalVolunteers,
+        totalUsers: totalUsers,
+        resolvedToday: resolvedToday,
+      });
+      
+      console.log('📊 Final stats set:', {
+        activeEmergencies: activeEmergenciesCount,
+        totalVolunteers,
+        totalUsers,
+        resolvedToday
+      });
+
+      // Format emergencies for display (case-insensitive status check)
+      const formattedEmergencies: EmergencyRequest[] = emergencyList
+        .filter((e: any) => {
+          const status = e.status?.toUpperCase();
+          return status === 'ACTIVE' || status === 'PENDING';
+        })
+        .slice(0, 5)
+        .map((emergency: any) => ({
+          id: emergency.id.toString(),
+          victimId: emergency.userId?.toString() || 'unknown',
+          disasterType: (emergency.caseType || emergency.disasterType) as DisasterType,
+          location: {
+            latitude: emergency.locationLat || emergency.latitude || 0,
+            longitude: emergency.locationLng || emergency.longitude || 0,
+            address: emergency.locationAddress || emergency.location || 'Unknown location',
+          },
+          description: emergency.description || 'No description provided',
+          severity: mapSeverityLevel(emergency.severityLevel || emergency.severity),
+          status: (emergency.status || 'pending').toLowerCase(),
+          assignedVolunteers: emergency.assignedVolunteers || [],
+          governmentAgenciesNotified: emergency.governmentAgenciesNotified || [],
+          createdAt: new Date(emergency.createdAt),
+          updatedAt: new Date(emergency.updatedAt),
+        }));
+
+      setActiveEmergencies(formattedEmergencies);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      Alert.alert('Error', 'Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Helper function to map numeric severity to text
+  const mapSeverityLevel = (level: any): string => {
+    if (typeof level === 'string') return level;
+    switch (level) {
+      case 5: return 'critical';
+      case 4: return 'high';
+      case 3: return 'medium';
+      case 2: return 'low';
+      case 1: return 'low';
+      default: return 'medium';
+    }
+  };
 
   const getDisasterIcon = (type: DisasterType) => {
     const iconMap: { [key in DisasterType]: string } = {
@@ -114,7 +211,7 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ user }) => {
   const handleEmergencyPress = (emergency: EmergencyRequest) => {
     Alert.alert(
       'Emergency Details',
-      `${emergency.disasterType.toUpperCase()}\n\nLocation: ${emergency.location.address}\n\nStatus: ${emergency.status}\n\nAssigned Volunteers: ${emergency.assignedVolunteers.length}`,
+      `${emergency.disasterType?.toUpperCase() || 'UNKNOWN'}\n\nLocation: ${emergency.location.address}\n\nStatus: ${emergency.status}\n\nAssigned Volunteers: ${emergency.assignedVolunteers.length}`,
       [
         { text: 'OK' },
         { text: 'View Details', onPress: () => console.log('Navigate to details') },
@@ -162,13 +259,38 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ user }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome, {user.name}</Text>
-        <Text style={styles.roleText}>Monitoring Dashboard</Text>
-      </View>
+      {/* Show UserManagement if selected */}
+      {activeView === 'userManagement' ? (
+        <View style={styles.container}>
+          {/* Back Button */}
+          <View style={styles.backHeader}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => setActiveView('dashboard')}
+            >
+              <Ionicons name="arrow-back" size={24} color="#007AFF" />
+              <Text style={styles.backButtonText}>Back to Dashboard</Text>
+            </TouchableOpacity>
+          </View>
+          <UserManagement user={user} />
+        </View>
+      ) : (
+        <>
+          {/* Header */}
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.welcomeText}>Welcome, {user.name}</Text>
+              <Text style={styles.roleText}>Monitoring Dashboard</Text>
+            </View>
+            <TouchableOpacity 
+              onPress={loadDashboardData}
+              style={styles.refreshButton}
+            >
+              <Ionicons name="refresh" size={24} color="#007AFF" />
+            </TouchableOpacity>
+          </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false}>
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statsRow}>
@@ -204,7 +326,10 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ user }) => {
         <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
-            <TouchableOpacity style={styles.quickActionButton}>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => setActiveView('userManagement')}
+            >
               <Ionicons name="people" size={24} color="#007AFF" />
               <Text style={styles.quickActionText}>Manage Users</Text>
             </TouchableOpacity>
@@ -241,6 +366,17 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ user }) => {
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             scrollEnabled={false}
+            ListEmptyComponent={
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Ionicons name="checkmark-circle-outline" size={48} color="#CCC" />
+                <Text style={{ fontSize: 16, color: '#999', marginTop: 12 }}>
+                  No active emergencies
+                </Text>
+                <Text style={{ fontSize: 14, color: '#BBB', marginTop: 4 }}>
+                  All emergencies are resolved or no cases reported
+                </Text>
+              </View>
+            }
           />
         </View>
 
@@ -279,6 +415,8 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ user }) => {
           </View>
         </View>
       </ScrollView>
+      </>
+      )}
     </View>
   );
 };
@@ -288,10 +426,32 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  backHeader: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
   header: {
     backgroundColor: 'white',
     padding: 20,
     paddingTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  refreshButton: {
+    padding: 8,
   },
   welcomeText: {
     fontSize: 24,

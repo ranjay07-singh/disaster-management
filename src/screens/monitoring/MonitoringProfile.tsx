@@ -8,8 +8,9 @@ import {
 } from 'react-native';
 import { User } from '../../types/User';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Import new components
+import { collection, getDocs } from 'firebase/firestore';
+import { firestore } from '../../services/firebase';
+import { ApiService } from '../../services/ApiService';
 import ProfileHeader from '../../components/monitoring/ProfileHeader';
 import StatsGrid from '../../components/monitoring/StatsGrid';
 import ProfileInformation from '../../components/monitoring/ProfileInformation';
@@ -58,24 +59,80 @@ const MonitoringProfile: React.FC<MonitoringProfileProps> = ({ user, onLogout })
 
   const loadRealData = async () => {
     try {
-      // Simulate real data from Firebase/backend
-      const storedStats = await AsyncStorage.getItem('monitoring_stats');
-      if (storedStats) {
-        setRealStats(JSON.parse(storedStats));
-      } else {
-        // Generate realistic initial data
-        const initialStats = {
-          casesHandled: Math.floor(Math.random() * 500) + 150,
-          activeYears: 2,
-          activeDays: Math.floor(Math.random() * 300) + 400,
-          resolvedCases: Math.floor(Math.random() * 400) + 120,
-          pendingCases: Math.floor(Math.random() * 30) + 5,
-        };
-        setRealStats(initialStats);
-        await AsyncStorage.setItem('monitoring_stats', JSON.stringify(initialStats));
-      }
+      console.log('📊 Loading real monitoring stats...');
+      
+      // Fetch users from Firebase
+      const usersCollection = collection(firestore, 'users');
+      const usersSnapshot = await getDocs(usersCollection);
+      
+      let totalUsers = 0;
+      let totalVolunteers = 0;
+      usersSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        const role = userData.role?.toUpperCase();
+        if (role === 'VOLUNTEER' || role === 'VICTIM') {
+          totalUsers++;
+          if (role === 'VOLUNTEER') {
+            totalVolunteers++;
+          }
+        }
+      });
+      
+      console.log('👥 Total users:', totalUsers, 'Volunteers:', totalVolunteers);
+
+      // Fetch emergencies from backend
+      const emergenciesResponse = await ApiService.getAllEmergencies();
+      const emergencyList = Array.isArray(emergenciesResponse) 
+        ? emergenciesResponse 
+        : ((emergenciesResponse as any)?.emergencies || (emergenciesResponse as any)?.data || []);
+      
+      console.log('🚨 Total emergencies:', emergencyList.length);
+
+      // Calculate statistics
+      const totalCases = emergencyList.length;
+      
+      const resolvedCases = emergencyList.filter((e: any) => {
+        const status = e.status?.toUpperCase();
+        return status === 'COMPLETED' || status === 'RESOLVED';
+      }).length;
+      
+      const pendingCases = emergencyList.filter((e: any) => {
+        const status = e.status?.toUpperCase();
+        return status === 'PENDING' || status === 'ACTIVE';
+      }).length;
+
+      // Calculate active years (from user creation date)
+      const userCreatedAt = user.createdAt ? new Date(user.createdAt) : new Date();
+      const now = new Date();
+      const yearsDiff = now.getFullYear() - userCreatedAt.getFullYear();
+      const monthsDiff = now.getMonth() - userCreatedAt.getMonth();
+      const activeYears = monthsDiff < 0 ? yearsDiff - 1 : yearsDiff;
+
+      const stats = {
+        casesHandled: totalCases,
+        activeYears: activeYears > 0 ? activeYears : 1, // At least 1 year
+        activeDays: Math.floor((now.getTime() - userCreatedAt.getTime()) / (1000 * 60 * 60 * 24)),
+        resolvedCases: resolvedCases,
+        pendingCases: pendingCases,
+      };
+
+      console.log('✅ Stats calculated:', stats);
+      
+      setRealStats(stats);
+      
+      // Cache the stats
+      await AsyncStorage.setItem('monitoring_stats', JSON.stringify(stats));
+      await AsyncStorage.setItem('monitoring_stats_timestamp', new Date().toISOString());
+      
     } catch (error) {
-      console.log('Error loading stats:', error);
+      console.error('❌ Error loading stats:', error);
+      
+      // Try to load cached stats on error
+      const cachedStats = await AsyncStorage.getItem('monitoring_stats');
+      if (cachedStats) {
+        console.log('📦 Loading cached stats');
+        setRealStats(JSON.parse(cachedStats));
+      }
     }
   };
 

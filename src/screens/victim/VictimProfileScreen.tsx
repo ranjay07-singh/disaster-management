@@ -8,10 +8,18 @@ import {
   TextInput,
   Alert,
   Image,
+  ActivityIndicator,
+  Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { User, UserRole } from '../../types/User';
 import { AuthService } from '../../services/AuthService';
+import { AuthenticationService } from '../../services/AuthenticationService';
+import { ProfileImageService } from '../../services/ProfileImageService';
+import { auth } from '../../services/firebase';
+import { API_CONFIG } from '../../config/ApiConfig';
 
 interface VictimProfileScreenProps {
   user: User;
@@ -24,19 +32,261 @@ const VictimProfileScreen: React.FC<VictimProfileScreenProps> = ({ user, onLogou
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [profileImageUri, setProfileImageUri] = useState<string | null>(user.profileImage || null);
+  const [emergencyContacts, setEmergencyContacts] = useState<string[]>(user.emergencyContacts || []);
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactPhone, setNewContactPhone] = useState('');
+  const [showAddContactDialog, setShowAddContactDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Request permissions for camera and gallery
+  const requestPermissions = async () => {
+    if (Platform.OS !== 'web') {
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (cameraStatus !== 'granted' || galleryStatus !== 'granted') {
+        Alert.alert(
+          'Permissions Required',
+          'Camera and gallery permissions are needed to update your profile photo.',
+          [{ text: 'OK' }]
+        );
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Handle profile photo selection
+  const handleSelectPhoto = () => {
+    Alert.alert(
+      'Update Profile Photo',
+      'Choose an option',
+      [
+        {
+          text: 'Take Photo',
+          onPress: () => handleTakePhoto(),
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => handleChooseFromGallery(),
+        },
+        {
+          text: 'Remove Photo',
+          onPress: () => handleRemovePhoto(),
+          style: 'destructive',
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Take photo with camera
+  const handleTakePhoto = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5, // Reduce quality to 50% for camera photos (they're usually very large)
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to open camera');
+    }
+  };
+
+  // Choose photo from gallery
+  const handleChooseFromGallery = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6, // Reduce quality to 60% for gallery photos
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to open gallery');
+    }
+  };
+
+  // Upload profile image to S3
+  const uploadProfileImage = async (imageUri: string) => {
+    setIsUploadingImage(true);
+    
+    try {
+      // Validate image
+      const validation = ProfileImageService.validateImage(imageUri);
+      if (!validation.valid) {
+        Alert.alert('Invalid Image', validation.error || 'Please select a valid image');
+        setIsUploadingImage(false);
+        return;
+      }
+
+      // Upload to S3 via backend
+      console.log('📤 Starting upload for user:', user.id);
+      
+      // Get Firebase ID token for authentication
+      let token: string | undefined;
+      try {
+        if (auth.currentUser) {
+          token = await auth.currentUser.getIdToken();
+          console.log('🔑 Got Firebase ID token');
+        } else {
+          console.warn('⚠️ No Firebase user logged in, uploading without token');
+        }
+      } catch (error) {
+        console.error('❌ Failed to get Firebase token:', error);
+      }
+      
+      const uploadResult = await ProfileImageService.uploadProfileImage(
+        user.id,
+        imageUri,
+        token
+      );
+
+      console.log('📊 Upload result:', uploadResult);
+
+      if (uploadResult.success && uploadResult.imageUrl) {
+        console.log('✅ Upload successful! Image URL:', uploadResult.imageUrl);
+        
+        // IMMEDIATELY display the image
+        setProfileImageUri(uploadResult.imageUrl);
+        setEditedUser({ ...editedUser, profileImage: uploadResult.imageUrl });
+        
+        // Save to Firebase (Firestore + AsyncStorage) - this persists across logins!
+        try {
+          await AuthService.updateUserProfile(user.id, {
+            profileImage: uploadResult.imageUrl,
+          });
+          
+          // Update local user object
+          user.profileImage = uploadResult.imageUrl;
+          
+          console.log('✅ Profile image saved to Firebase successfully!');
+          Alert.alert('Success', 'Profile photo updated successfully! 🎉');
+          
+        } catch (err) {
+          console.error('❌ Failed to save image URL to Firebase:', err);
+          Alert.alert('Partial Success', 'Image uploaded but may not persist. Please save your profile.');
+        }
+        
+      } else {
+        console.error('❌ Upload failed:', uploadResult.error);
+        Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', 'An error occurred while uploading the image');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Remove profile photo
+  const handleRemovePhoto = async () => {
+    Alert.alert(
+      'Remove Photo',
+      'Are you sure you want to remove your profile photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setIsUploadingImage(true);
+            try {
+              // Delete from S3 (optional - keeps S3 clean)
+              if (profileImageUri) {
+                try {
+                  await ProfileImageService.deleteProfileImage(profileImageUri);
+                } catch (err) {
+                  console.warn('⚠️ Failed to delete from S3:', err);
+                }
+              }
+              
+              // Remove from Firebase (Firestore + AsyncStorage)
+              await AuthService.updateUserProfile(user.id, {
+                profileImage: undefined,
+              });
+
+              // Update local state
+              setProfileImageUri(null);
+              setEditedUser({ ...editedUser, profileImage: undefined });
+              user.profileImage = undefined;
+              
+              console.log('✅ Profile photo removed from Firebase');
+              Alert.alert('Success', 'Profile photo removed');
+              
+            } catch (error) {
+              console.error('❌ Error removing photo:', error);
+              Alert.alert('Error', 'Failed to remove profile photo');
+            } finally {
+              setIsUploadingImage(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSaveProfile = async () => {
+    setIsSaving(true);
     try {
+      console.log('💾 Saving profile updates...');
+      console.log('📝 Updated data:', {
+        name: editedUser.name,
+        phone: editedUser.phone,
+        location: editedUser.location,
+        emergencyContacts: emergencyContacts,
+      });
+
+      // Update profile using AuthService (saves to Firestore + AsyncStorage)
       await AuthService.updateUserProfile(user.id, {
         name: editedUser.name,
         phone: editedUser.phone,
         location: editedUser.location,
+        emergencyContacts: emergencyContacts,
       });
 
-      Alert.alert('Success', 'Profile updated successfully');
+      console.log('✅ Profile saved to Firebase and local storage');
+
+      // Update local user object
+      Object.assign(user, {
+        name: editedUser.name,
+        phone: editedUser.phone,
+        location: editedUser.location,
+        emergencyContacts: emergencyContacts,
+      });
+
+      Alert.alert('Success', 'Profile updated successfully! 🎉');
       setIsEditing(false);
+
     } catch (error) {
-      Alert.alert('Error', 'Failed to update profile');
+      console.error('❌ Profile update error:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -51,29 +301,167 @@ const VictimProfileScreen: React.FC<VictimProfileScreenProps> = ({ user, onLogou
       return;
     }
 
+    setIsSaving(true);
     try {
-      // In real implementation, update password
-      Alert.alert('Success', 'Password updated successfully');
-      setNewPassword('');
-      setConfirmPassword('');
-      setShowPasswordSection(false);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update password');
+      console.log('🔐 Updating password...');
+      
+      // Update password in Firebase
+      if (auth.currentUser) {
+        const { updatePassword } = await import('firebase/auth');
+        await updatePassword(auth.currentUser, newPassword);
+        
+        console.log('✅ Password updated in Firebase');
+        Alert.alert('Success', 'Password updated successfully! 🔒');
+        setNewPassword('');
+        setConfirmPassword('');
+        setShowPasswordSection(false);
+      } else {
+        Alert.alert('Error', 'You must be logged in to change your password');
+      }
+    } catch (error: any) {
+      console.error('❌ Password update error:', error);
+      
+      if (error.code === 'auth/requires-recent-login') {
+        Alert.alert(
+          'Session Expired',
+          'For security reasons, please log out and log back in before changing your password.'
+        );
+      } else {
+        Alert.alert('Error', error.message || 'Failed to update password');
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleSwitchToVolunteer = () => {
+  // Add Emergency Contact
+  const handleAddEmergencyContact = () => {
+    if (emergencyContacts.length >= 3) {
+      Alert.alert('Limit Reached', 'You can only add up to 3 emergency contacts');
+      return;
+    }
+    setShowAddContactDialog(true);
+  };
+
+  const handleSaveEmergencyContact = async () => {
+    if (!newContactName.trim()) {
+      Alert.alert('Error', 'Please enter contact name');
+      return;
+    }
+
+    if (!newContactPhone.trim()) {
+      Alert.alert('Error', 'Please enter contact phone number');
+      return;
+    }
+
+    // Validate phone number (basic validation)
+    const phoneRegex = /^[0-9]{10}$/;
+    if (!phoneRegex.test(newContactPhone.replace(/\D/g, '').slice(-10))) {
+      Alert.alert('Error', 'Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const contactString = `${newContactName.trim()} - ${newContactPhone.trim()}`;
+      const updatedContacts = [...emergencyContacts, contactString];
+      
+      // Update local state
+      setEmergencyContacts(updatedContacts);
+      
+      // Save to Firebase immediately
+      await AuthService.updateUserProfile(user.id, {
+        emergencyContacts: updatedContacts,
+      });
+      
+      // Update user object
+      user.emergencyContacts = updatedContacts;
+      
+      setNewContactName('');
+      setNewContactPhone('');
+      setShowAddContactDialog(false);
+      
+      console.log('✅ Emergency contact saved to Firebase');
+      Alert.alert('Success', 'Emergency contact added and saved! ✅');
+      
+    } catch (error) {
+      console.error('❌ Error saving emergency contact:', error);
+      Alert.alert('Error', 'Failed to save emergency contact');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemoveEmergencyContact = (index: number) => {
     Alert.alert(
-      'Switch to Volunteer',
-      'You will need to provide additional information for volunteer registration. Do you want to continue?',
+      'Remove Contact',
+      'Are you sure you want to remove this emergency contact?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Continue', 
-          onPress: () => {
-            // Navigate to volunteer registration flow
-            Alert.alert('Info', 'Volunteer registration flow would open here');
-          }
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setIsSaving(true);
+            try {
+              const updated = emergencyContacts.filter((_, i) => i !== index);
+              
+              // Update local state
+              setEmergencyContacts(updated);
+              
+              // Save to Firebase immediately
+              await AuthService.updateUserProfile(user.id, {
+                emergencyContacts: updated,
+              });
+              
+              // Update user object
+              user.emergencyContacts = updated;
+              
+              console.log('✅ Emergency contact removed and saved to Firebase');
+              Alert.alert('Success', 'Contact removed! ✅');
+              
+            } catch (error) {
+              console.error('❌ Error removing contact:', error);
+              Alert.alert('Error', 'Failed to remove contact');
+            } finally {
+              setIsSaving(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Call emergency contact
+  const handleCallContact = async (contactString: string) => {
+    // Extract phone number from "Name - Phone" format
+    const phoneMatch = contactString.match(/[\d\s\-\+\(\)]+$/);
+    if (!phoneMatch) {
+      Alert.alert('Error', 'Invalid phone number format');
+      return;
+    }
+
+    const phoneNumber = phoneMatch[0].replace(/\D/g, ''); // Remove non-digits
+    const phoneUrl = `tel:${phoneNumber}`;
+
+    Alert.alert(
+      'Call Emergency Contact',
+      `Do you want to call ${contactString}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call Now',
+          onPress: async () => {
+            try {
+              await Linking.openURL(phoneUrl);
+            } catch (error) {
+              console.error('Error making call:', error);
+              Alert.alert(
+                'Unable to Call',
+                'Please ensure you have phone calling permissions enabled and you are using a real mobile device.'
+              );
+            }
+          },
         },
       ]
     );
@@ -95,17 +483,30 @@ const VictimProfileScreen: React.FC<VictimProfileScreenProps> = ({ user, onLogou
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
-          <Image
-            source={
-              user.profileImage
-                ? { uri: user.profileImage }
-                : require('../../../assets/icon.png')
-            }
-            style={styles.avatar}
-          />
-          <TouchableOpacity style={styles.editAvatarButton}>
-            <Ionicons name="camera" size={16} color="white" />
-          </TouchableOpacity>
+          {isUploadingImage ? (
+            <View style={styles.avatarLoadingContainer}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={styles.uploadingText}>Uploading...</Text>
+            </View>
+          ) : (
+            <>
+              <Image
+                source={
+                  profileImageUri
+                    ? { uri: profileImageUri }
+                    : require('../../../assets/icon.png')
+                }
+                style={styles.avatar}
+              />
+              <TouchableOpacity 
+                style={styles.editAvatarButton}
+                onPress={handleSelectPhoto}
+                disabled={isUploadingImage}
+              >
+                <Ionicons name="camera" size={20} color="white" />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
         <Text style={styles.userName}>{user.name}</Text>
         <Text style={styles.userRole}>Victim/End User</Text>
@@ -169,8 +570,16 @@ const VictimProfileScreen: React.FC<VictimProfileScreenProps> = ({ user, onLogou
               />
             </View>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-              <Text style={styles.saveButtonText}>Save Changes</Text>
+            <TouchableOpacity 
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
+              onPress={handleSaveProfile}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save Changes</Text>
+              )}
             </TouchableOpacity>
           </View>
         ) : (
@@ -250,8 +659,16 @@ const VictimProfileScreen: React.FC<VictimProfileScreenProps> = ({ user, onLogou
               />
             </View>
 
-            <TouchableOpacity style={styles.passwordButton} onPress={handlePasswordChange}>
-              <Text style={styles.passwordButtonText}>Update Password</Text>
+            <TouchableOpacity 
+              style={[styles.passwordButton, isSaving && styles.saveButtonDisabled]} 
+              onPress={handlePasswordChange}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.passwordButtonText}>Update Password</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -259,33 +676,104 @@ const VictimProfileScreen: React.FC<VictimProfileScreenProps> = ({ user, onLogou
 
       {/* Emergency Contacts */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Emergency Contacts</Text>
+        <Text style={styles.sectionTitle}>Emergency Contacts ({emergencyContacts.length}/3)</Text>
         <View style={styles.emergencyContacts}>
-          {user.emergencyContacts?.map((contact, index) => (
+          {emergencyContacts.map((contact, index) => (
             <View key={index} style={styles.contactRow}>
               <Ionicons name="person-circle" size={24} color="#007AFF" />
               <Text style={styles.contactText}>{contact}</Text>
+              <View style={styles.contactActions}>
+                <TouchableOpacity 
+                  style={styles.callButton}
+                  onPress={() => handleCallContact(contact)}
+                >
+                  <Ionicons name="call" size={20} color="#34C759" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.removeContactButton}
+                  onPress={() => handleRemoveEmergencyContact(index)}
+                >
+                  <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
             </View>
-          )) || (
+          ))}
+          {emergencyContacts.length === 0 && (
             <Text style={styles.noContactsText}>No emergency contacts added</Text>
           )}
-          <TouchableOpacity style={styles.addContactButton}>
-            <Ionicons name="add-circle" size={20} color="#007AFF" />
-            <Text style={styles.addContactText}>Add Emergency Contact</Text>
-          </TouchableOpacity>
+          {emergencyContacts.length < 3 && (
+            <TouchableOpacity 
+              style={styles.addContactButton}
+              onPress={handleAddEmergencyContact}
+            >
+              <Ionicons name="add-circle" size={20} color="#007AFF" />
+              <Text style={styles.addContactText}>Add Emergency Contact</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+
+      {/* Add Contact Modal */}
+      {showAddContactDialog && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Emergency Contact</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Contact Name</Text>
+              <TextInput
+                style={styles.input}
+                value={newContactName}
+                onChangeText={setNewContactName}
+                placeholder="Enter contact name"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                style={styles.input}
+                value={newContactPhone}
+                onChangeText={setNewContactPhone}
+                placeholder="Enter phone number"
+                keyboardType="phone-pad"
+                maxLength={15}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => {
+                  setShowAddContactDialog(false);
+                  setNewContactName('');
+                  setNewContactPhone('');
+                }}
+                disabled={isSaving}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalSaveButton, isSaving && styles.saveButtonDisabled]}
+                onPress={handleSaveEmergencyContact}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.modalSaveText}>Save Contact</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Account Actions */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account Actions</Text>
         
-        <TouchableOpacity style={styles.actionButton} onPress={handleSwitchToVolunteer}>
-          <Ionicons name="person-add" size={20} color="#007AFF" />
-          <Text style={styles.actionButtonText}>Switch to Volunteer</Text>
-          <Ionicons name="chevron-forward" size={16} color="#666" />
-        </TouchableOpacity>
-
         <TouchableOpacity style={[styles.actionButton, styles.logoutButton]} onPress={confirmLogout}>
           <Ionicons name="log-out" size={20} color="#FF3B30" />
           <Text style={[styles.actionButtonText, styles.logoutText]}>Logout</Text>
@@ -297,15 +785,15 @@ const VictimProfileScreen: React.FC<VictimProfileScreenProps> = ({ user, onLogou
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account Information</Text>
         <View style={styles.accountInfo}>
-          <Text style={styles.accountInfoText}>
-            Account created: {new Date(user.createdAt).toLocaleDateString()}
-          </Text>
-          <Text style={styles.accountInfoText}>
-            Last updated: {new Date(user.updatedAt).toLocaleDateString()}
-          </Text>
-          <Text style={styles.accountInfoText}>
-            User ID: {user.id}
-          </Text>
+          <View style={styles.accountInfoRow}>
+            <Ionicons name="finger-print" size={20} color="#007AFF" />
+            <View style={styles.accountInfoContent}>
+              <Text style={styles.accountInfoLabel}>USER ID</Text>
+              <Text style={[styles.accountInfoValue, styles.userIdText]} numberOfLines={1} selectable>
+                {user.id}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
     </ScrollView>
@@ -333,16 +821,35 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     backgroundColor: '#f0f0f0',
   },
+  avatarLoadingContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingText: {
+    fontSize: 12,
+    color: '#007AFF',
+    marginTop: 5,
+    fontWeight: '500',
+  },
   editAvatarButton: {
     position: 'absolute',
     right: 0,
     bottom: 0,
     backgroundColor: '#007AFF',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
+    borderRadius: 18,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   userName: {
     fontSize: 24,
@@ -463,11 +970,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+    backgroundColor: '#f9f9f9',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   contactText: {
     fontSize: 16,
     color: '#333',
     marginLeft: 10,
+    flex: 1,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  callButton: {
+    padding: 6,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 20,
   },
   noContactsText: {
     fontSize: 14,
@@ -516,10 +1039,113 @@ const styles = StyleSheet.create({
   accountInfo: {
     marginTop: 10,
   },
+  accountInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  accountInfoContent: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  accountInfoLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  accountInfoValue: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  accountInfoTime: {
+    fontSize: 14,
+    color: '#666',
+  },
+  userIdText: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 13,
+    color: '#007AFF',
+  },
   accountInfoText: {
     fontSize: 14,
     color: '#666',
     marginBottom: 5,
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
+  },
+  removeContactButton: {
+    padding: 6,
+    backgroundColor: '#FFEBEE',
+    borderRadius: 20,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  modalSaveButton: {
+    backgroundColor: '#007AFF',
+  },
+  modalCancelText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalSaveText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

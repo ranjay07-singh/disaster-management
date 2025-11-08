@@ -11,16 +11,16 @@ import java.util.*;
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class EmergencyController {
 
+    // In-memory storage for emergencies (will be lost on restart)
+    private static final Map<Long, Map<String, Object>> emergencyStore = new HashMap<>();
+    private static long nextId = 1;
+
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAllEmergencies() {
         Map<String, Object> response = new HashMap<>();
         
-        // Sample emergency data
-        List<Map<String, Object>> emergencies = Arrays.asList(
-            createEmergencyMap(1, "medical", "Person injured in car accident", 4, "pending"),
-            createEmergencyMap(2, "fire", "Small kitchen fire reported", 3, "resolved"),
-            createEmergencyMap(3, "rescue", "Person trapped in elevator", 2, "in_progress")
-        );
+        // Return stored emergencies
+        List<Map<String, Object>> emergencies = new ArrayList<>(emergencyStore.values());
         
         response.put("emergencies", emergencies);
         response.put("total", emergencies.size());
@@ -33,13 +33,8 @@ public class EmergencyController {
     public ResponseEntity<Map<String, Object>> getEmergencyById(@PathVariable Long id) {
         Map<String, Object> response = new HashMap<>();
         
-        if (id <= 3) {
-            String[] types = {"", "medical", "fire", "rescue"};
-            String[] descriptions = {"", "Person injured in car accident", "Small kitchen fire reported", "Person trapped in elevator"};
-            int[] severities = {0, 4, 3, 2};
-            String[] statuses = {"", "pending", "resolved", "in_progress"};
-            
-            Map<String, Object> emergency = createEmergencyMap(id, types[id.intValue()], descriptions[id.intValue()], severities[id.intValue()], statuses[id.intValue()]);
+        Map<String, Object> emergency = emergencyStore.get(id);
+        if (emergency != null) {
             response.put("emergency", emergency);
             response.put("found", true);
         } else {
@@ -56,16 +51,12 @@ public class EmergencyController {
         Map<String, Object> response = new HashMap<>();
         List<Map<String, Object>> emergencies = new ArrayList<>();
         
-        switch (status.toLowerCase()) {
-            case "pending":
-                emergencies.add(createEmergencyMap(1, "medical", "Person injured in car accident", 4, "pending"));
-                break;
-            case "resolved":
-                emergencies.add(createEmergencyMap(2, "fire", "Small kitchen fire reported", 3, "resolved"));
-                break;
-            case "in_progress": 
-                emergencies.add(createEmergencyMap(3, "rescue", "Person trapped in elevator", 2, "in_progress"));
-                break;
+        // Filter emergencies by status
+        for (Map<String, Object> emergency : emergencyStore.values()) {
+            String emergencyStatus = (String) emergency.get("status");
+            if (emergencyStatus != null && emergencyStatus.equalsIgnoreCase(status)) {
+                emergencies.add(emergency);
+            }
         }
         
         response.put("emergencies", emergencies);
@@ -81,7 +72,7 @@ public class EmergencyController {
         Map<String, Object> response = new HashMap<>();
         
         // Generate new ID
-        long newId = 4;
+        long newId = nextId++;
         
         Map<String, Object> newEmergency = new HashMap<>();
         newEmergency.put("id", newId);
@@ -93,13 +84,58 @@ public class EmergencyController {
         newEmergency.put("locationAddress", emergencyData.get("locationAddress"));
         newEmergency.put("status", "pending");
         newEmergency.put("createdAt", LocalDateTime.now());
+        newEmergency.put("updatedAt", LocalDateTime.now());
         newEmergency.put("victimId", emergencyData.get("victimId"));
+        
+        // Store the emergency in memory
+        emergencyStore.put(newId, newEmergency);
+        
+        System.out.println("✅ Emergency stored: ID=" + newId + ", Total emergencies=" + emergencyStore.size());
         
         response.put("emergency", newEmergency);
         response.put("message", "Emergency created successfully");
         response.put("created", true);
         response.put("timestamp", LocalDateTime.now());
         
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> updateEmergencyStatus(
+            @PathVariable Long id, 
+            @RequestBody Map<String, Object> updateData) {
+        Map<String, Object> response = new HashMap<>();
+        
+        Map<String, Object> emergency = emergencyStore.get(id);
+        if (emergency != null) {
+            // Update status
+            String newStatus = (String) updateData.get("status");
+            if (newStatus != null) {
+                emergency.put("status", newStatus);
+                emergency.put("updatedAt", LocalDateTime.now());
+                
+                // If marked as completed/resolved, add resolution timestamp
+                if ("completed".equalsIgnoreCase(newStatus) || "resolved".equalsIgnoreCase(newStatus)) {
+                    emergency.put("resolvedAt", LocalDateTime.now());
+                }
+                
+                emergencyStore.put(id, emergency);
+                
+                System.out.println("✅ Emergency " + id + " updated to status: " + newStatus);
+                
+                response.put("emergency", emergency);
+                response.put("message", "Emergency status updated successfully");
+                response.put("updated", true);
+            } else {
+                response.put("message", "Status field is required");
+                response.put("updated", false);
+            }
+        } else {
+            response.put("message", "Emergency not found");
+            response.put("updated", false);
+        }
+        
+        response.put("timestamp", LocalDateTime.now());
         return ResponseEntity.ok(response);
     }
 

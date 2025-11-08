@@ -5,17 +5,22 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
-  User as FirebaseUser
+  User as FirebaseUser,
+  Auth
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteField, Firestore } from 'firebase/firestore';
 import { auth, firestore } from './firebase';
 import { User, UserRole } from '../types/User';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Type assertion to fix TypeScript errors
+const firebaseAuth = auth as Auth;
+const firestoreDB = firestore as Firestore;
+
 export class AuthService {
   static async register(email: string, password: string, userData: Partial<User>): Promise<User> {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
       const firebaseUser = userCredential.user;
 
       // Update Firebase profile
@@ -41,7 +46,9 @@ export class AuthService {
         user.location = userData.location;
       }
 
-      await setDoc(doc(firestore, 'users', firebaseUser.uid), user);
+      if (firestoreDB) {
+        await setDoc(doc(firestoreDB, 'users', firebaseUser.uid), user);
+      }
       await AsyncStorage.setItem('userData', JSON.stringify(user));
 
       return user;
@@ -56,11 +63,14 @@ export class AuthService {
 
   static async login(email: string, password: string): Promise<User> {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       const firebaseUser = userCredential.user;
 
       // Get user data from Firestore
-      const userDoc = await getDoc(doc(firestore, 'users', firebaseUser.uid));
+      if (!firestoreDB) {
+        throw new Error('Firestore not initialized');
+      }
+      const userDoc = await getDoc(doc(firestoreDB, 'users', firebaseUser.uid));
       
       if (!userDoc.exists()) {
         throw new Error('User data not found');
@@ -81,7 +91,7 @@ export class AuthService {
 
   static async logout(): Promise<void> {
     try {
-      await signOut(auth);
+      await signOut(firebaseAuth);
       await AsyncStorage.removeItem('userData');
     } catch (error) {
       // Log silently in development mode only
@@ -102,12 +112,12 @@ export class AuthService {
 
       // If not in storage, check Firebase Auth
       return new Promise((resolve) => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
           unsubscribe();
           
-          if (firebaseUser) {
+          if (firebaseUser && firestoreDB) {
             try {
-              const userDoc = await getDoc(doc(firestore, 'users', firebaseUser.uid));
+              const userDoc = await getDoc(doc(firestoreDB, 'users', firebaseUser.uid));
               if (userDoc.exists()) {
                 const userData = userDoc.data() as User;
                 await AsyncStorage.setItem('userData', JSON.stringify(userData));
@@ -136,16 +146,41 @@ export class AuthService {
 
   static async updateUserProfile(userId: string, updates: Partial<User>): Promise<void> {
     try {
-      await updateDoc(doc(firestore, 'users', userId), {
-        ...updates,
-        updatedAt: new Date(),
+      if (!firestoreDB) {
+        throw new Error('Firestore not initialized');
+      }
+      
+      // Handle undefined values by converting them to deleteField()
+      const processedUpdates: any = { updatedAt: new Date() };
+      
+      Object.keys(updates).forEach(key => {
+        const value = (updates as any)[key];
+        if (value === undefined || value === null) {
+          // Use deleteField() to properly remove the field from Firestore
+          processedUpdates[key] = deleteField();
+        } else {
+          processedUpdates[key] = value;
+        }
       });
+      
+      await updateDoc(doc(firestoreDB, 'users', userId), processedUpdates);
 
       // Update AsyncStorage
       const storedUser = await AsyncStorage.getItem('userData');
       if (storedUser) {
         const userData = JSON.parse(storedUser);
-        const updatedUser = { ...userData, ...updates, updatedAt: new Date() };
+        const updatedUser = { ...userData, updatedAt: new Date() };
+        
+        // Apply updates, removing undefined/null fields from local storage too
+        Object.keys(updates).forEach(key => {
+          const value = (updates as any)[key];
+          if (value === undefined || value === null) {
+            delete (updatedUser as any)[key];
+          } else {
+            (updatedUser as any)[key] = value;
+          }
+        });
+        
         await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
       }
     } catch (error) {
@@ -175,7 +210,10 @@ export class AuthService {
 
   static async resetPassword(email: string): Promise<void> {
     try {
-      await sendPasswordResetEmail(auth, email);
+      if (!firebaseAuth) {
+        throw new Error('Firebase Auth not initialized');
+      }
+      await sendPasswordResetEmail(firebaseAuth, email);
     } catch (error) {
       if (__DEV__) {
         console.log('Password reset error:', (error as any)?.code || (error as any)?.message);

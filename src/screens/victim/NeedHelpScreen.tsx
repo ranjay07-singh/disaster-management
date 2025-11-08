@@ -7,12 +7,11 @@ import {
   Alert,
   ScrollView,
   TextInput,
-  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-// import { AudioRecording, useAudioRecorder, useAudioPlayer } from 'expo-audio';
 import * as Location from 'expo-location';
-import { User, DisasterType, EmergencyRequest } from '../../types/User';
+import { User, DisasterType } from '../../types/User';
+import { ApiService } from '../../services/ApiService';
 
 interface NeedHelpScreenProps {
   user: User;
@@ -21,10 +20,6 @@ interface NeedHelpScreenProps {
 const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
   const [selectedDisaster, setSelectedDisaster] = useState<DisasterType | null>(null);
   const [description, setDescription] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [recording, setRecording] = useState<any>(null);
-  const [audioUri, setAudioUri] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
 
@@ -47,109 +42,18 @@ const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
   };
 
   const disasterTypes = [
+    { type: DisasterType.ROAD_ACCIDENT, label: 'Road Accident', icon: 'car', color: '#FF3B30' },
     { type: DisasterType.FLOOD, label: 'Flood', icon: 'water', color: '#4A90E2' },
     { type: DisasterType.EARTHQUAKE, label: 'Earthquake', icon: 'globe', color: '#8B4513' },
     { type: DisasterType.FIRE, label: 'Fire', icon: 'flame', color: '#FF6B35' },
-    { type: DisasterType.ROAD_ACCIDENT, label: 'Road Accident', icon: 'car', color: '#FF3B30' },
     { type: DisasterType.WOMEN_SAFETY, label: 'Women Safety', icon: 'shield', color: '#FF2D92' },
     { type: DisasterType.CYCLONE, label: 'Cyclone', icon: 'refresh', color: '#5856D6' },
     { type: DisasterType.TSUNAMI, label: 'Tsunami', icon: 'water', color: '#007AFF' },
-    { type: DisasterType.AVALANCHE, label: 'Avalanche', icon: 'snow', color: '#E5E5EA' },
+    { type: DisasterType.AVALANCHE, label: 'Avalanche', icon: 'snow', color: '#7c7c93ff' },
     { type: DisasterType.LANDSLIDE, label: 'Landslide', icon: 'triangle', color: '#8E8E93' },
     { type: DisasterType.FOREST_FIRE, label: 'Forest Fire', icon: 'leaf', color: '#FF9500' },
     { type: DisasterType.CHEMICAL_EMERGENCY, label: 'Chemical Emergency', icon: 'flask', color: '#34C759' },
   ];
-
-  const startRecording = async () => {
-    try {
-      // Placeholder for audio recording functionality
-      // TODO: Implement with expo-audio when needed
-      setIsRecording(true);
-      setRecording({ uri: 'placeholder-audio-recording' });
-      
-      // Simulate recording for 3 seconds
-      setTimeout(() => {
-        if (isRecording) {
-          stopRecording();
-        }
-      }, 3000);
-      
-      Alert.alert('Recording Started', 'Voice recording simulation started (3 seconds)');
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      Alert.alert('Error', 'Failed to start recording');
-    }
-  };
-
-  const stopRecording = async () => {
-    if (!recording) return;
-
-    setIsRecording(false);
-    const uri = 'simulated-audio-recording.wav';
-    setAudioUri(uri);
-    setRecording(null);
-
-    Alert.alert('Recording Stopped', 'Voice recording completed successfully!');
-    
-    // Process audio with AI (mock implementation)
-    processAudioWithAI(uri);
-  };
-
-  const processAudioWithAI = async (audioUri: string | null) => {
-    if (!audioUri) return;
-
-    setIsProcessing(true);
-
-    // Mock AI processing - In real implementation, send to AI service
-    setTimeout(() => {
-      const mockKeywords = ['fire', 'emergency', 'help'];
-      const detectedDisaster = detectDisasterFromKeywords(mockKeywords);
-      
-      if (detectedDisaster) {
-        setSelectedDisaster(detectedDisaster);
-        Alert.alert(
-          'Disaster Detected',
-          `AI detected: ${detectedDisaster}. Please confirm if this is correct.`
-        );
-      }
-      
-      setIsProcessing(false);
-    }, 2000);
-  };
-
-  const detectDisasterFromKeywords = (keywords: string[]): DisasterType | null => {
-    // Simple keyword mapping - In real implementation, use more sophisticated AI
-    const keywordMap: { [key: string]: DisasterType } = {
-      'fire': DisasterType.FIRE,
-      'flood': DisasterType.FLOOD,
-      'earthquake': DisasterType.EARTHQUAKE,
-      'accident': DisasterType.ROAD_ACCIDENT,
-      'help': DisasterType.WOMEN_SAFETY, // Context-dependent
-      'cyclone': DisasterType.CYCLONE,
-      'tsunami': DisasterType.TSUNAMI,
-    };
-
-    for (const keyword of keywords) {
-      if (keywordMap[keyword.toLowerCase()]) {
-        return keywordMap[keyword.toLowerCase()];
-      }
-    }
-
-    return null;
-  };
-
-  const processTextWithAI = (text: string) => {
-    const keywords = text.toLowerCase().split(' ');
-    const detectedDisaster = detectDisasterFromKeywords(keywords);
-    
-    if (detectedDisaster) {
-      setSelectedDisaster(detectedDisaster);
-      Alert.alert(
-        'Disaster Detected',
-        `AI detected: ${detectedDisaster} from your description. Please confirm if this is correct.`
-      );
-    }
-  };
 
   const submitEmergencyRequest = async () => {
     if (!selectedDisaster) {
@@ -165,7 +69,6 @@ const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
     setIsProcessing(true);
 
     try {
-      // Get address from coordinates
       const reverseGeocode = await Location.reverseGeocodeAsync({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -175,26 +78,26 @@ const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
         ? `${reverseGeocode[0].street || ''}, ${reverseGeocode[0].city || ''}, ${reverseGeocode[0].region || ''}`
         : 'Address not available';
 
-      const emergencyRequest: Partial<EmergencyRequest> = {
-        victimId: user.id,
+      const emergencyData = {
+        caseType: selectedDisaster,
         disasterType: selectedDisaster,
-        location: {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          address: address,
-        },
-        description: description,
-        voiceRecording: audioUri || undefined,
+        description: description || `Emergency: ${selectedDisaster}`,
+        severityLevel: getSeverityLevel(selectedDisaster),
         severity: determineSeverity(selectedDisaster),
-        status: 'pending',
-        createdAt: new Date(),
+        locationLat: location.coords.latitude,
+        locationLng: location.coords.longitude,
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        locationAddress: address,
+        location: address,
+        victimId: user.id,
       };
 
-      // In real implementation, send to backend
-      console.log('Emergency Request:', emergencyRequest);
+      console.log('📤 Submitting emergency request:', emergencyData);
 
-      // Mock volunteer assignment and government notification
-      await assignVolunteersAndNotifyAuthorities(emergencyRequest);
+      const response = await ApiService.createEmergencyAuthenticated(emergencyData);
+      console.log('✅ Emergency created successfully:', response);
+      console.log('✅ Emergency Created:', response);
 
       Alert.alert(
         'Help Request Sent',
@@ -202,7 +105,6 @@ const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
         [{ text: 'OK', onPress: () => {
           setSelectedDisaster(null);
           setDescription('');
-          setAudioUri(null);
         }}]
       );
 
@@ -225,69 +127,43 @@ const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
     return 'low';
   };
 
-  const assignVolunteersAndNotifyAuthorities = async (request: Partial<EmergencyRequest>) => {
-    // Mock implementation - In real app, this would be handled by backend
-    console.log('Assigning volunteers and notifying authorities for:', request.disasterType);
-    
-    // Simulate API calls to AWS Lambda for notifications
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  const getSeverityLevel = (disasterType: DisasterType): number => {
+    const criticalDisasters = [DisasterType.EARTHQUAKE, DisasterType.TSUNAMI, DisasterType.CHEMICAL_EMERGENCY];
+    const highDisasters = [DisasterType.FIRE, DisasterType.FLOOD, DisasterType.CYCLONE];
+    const mediumDisasters = [DisasterType.ROAD_ACCIDENT, DisasterType.WOMEN_SAFETY];
+
+    if (criticalDisasters.includes(disasterType)) return 5;
+    if (highDisasters.includes(disasterType)) return 4;
+    if (mediumDisasters.includes(disasterType)) return 3;
+    return 2;
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="alert-circle" size={40} color="#FF3B30" />
+        <Ionicons name="alert-circle" size={48} color="#FF3B30" />
         <Text style={styles.title}>Need Emergency Help?</Text>
-        <Text style={styles.subtitle}>Select disaster type or use voice/text detection</Text>
+        <Text style={styles.subtitle}>Select the type of emergency</Text>
       </View>
 
-      {/* AI Detection Section */}
-      <View style={styles.aiSection}>
-        <Text style={styles.sectionTitle}>AI Detection</Text>
-        
-        {/* Voice Recording */}
+      <View style={styles.disasterSection}>
         <TouchableOpacity
-          style={[styles.voiceButton, isRecording && styles.voiceButtonActive]}
-          onPress={isRecording ? stopRecording : startRecording}
-          disabled={isProcessing}
+          style={[
+            styles.featuredCard,
+            { backgroundColor: disasterTypes[0].color },
+            selectedDisaster === disasterTypes[0].type && styles.selectedCard,
+          ]}
+          onPress={() => setSelectedDisaster(disasterTypes[0].type)}
         >
-          <Ionicons 
-            name={isRecording ? 'stop-circle' : 'mic'} 
-            size={24} 
-            color="white" 
-          />
-          <Text style={styles.voiceButtonText}>
-            {isRecording ? 'Stop Recording' : 'Start Voice Recording'}
-          </Text>
+          <Ionicons name={disasterTypes[0].icon as any} size={40} color="white" />
+          <Text style={styles.featuredLabel}>{disasterTypes[0].label}</Text>
+          {selectedDisaster === disasterTypes[0].type && (
+            <Ionicons name="checkmark-circle" size={28} color="#FFD700" style={styles.checkmark} />
+          )}
         </TouchableOpacity>
 
-        {/* Text Input for AI Analysis */}
-        <TextInput
-          style={styles.textInput}
-          placeholder="Describe your emergency (AI will analyze)..."
-          value={description}
-          onChangeText={(text) => {
-            setDescription(text);
-            if (text.length > 10) {
-              processTextWithAI(text);
-            }
-          }}
-          multiline
-          numberOfLines={3}
-        />
-
-        {isProcessing && (
-          <View style={styles.processingContainer}>
-            <Text style={styles.processingText}>AI is analyzing your request...</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Disaster Type Selection */}
-      <View style={styles.disasterSection}>
-        <Text style={styles.sectionTitle}>Select Disaster Type</Text>
         <View style={styles.disasterGrid}>
-          {disasterTypes.map((disaster) => (
+          {disasterTypes.slice(1).map((disaster) => (
             <TouchableOpacity
               key={disaster.type}
               style={[
@@ -297,14 +173,31 @@ const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
               ]}
               onPress={() => setSelectedDisaster(disaster.type)}
             >
-              <Ionicons name={disaster.icon as any} size={30} color="white" />
+              <Ionicons name={disaster.icon as any} size={32} color="white" />
               <Text style={styles.disasterLabel}>{disaster.label}</Text>
+              {selectedDisaster === disaster.type && (
+                <Ionicons name="checkmark-circle" size={24} color="#FFD700" style={styles.checkmark} />
+              )}
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      {/* Submit Button */}
+      {selectedDisaster && (
+        <View style={styles.descriptionSection}>
+          <Text style={styles.descriptionTitle}>Additional Details (Optional)</Text>
+          <TextInput
+            style={styles.descriptionInput}
+            placeholder="Describe the situation..."
+            placeholderTextColor="#999"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={4}
+          />
+        </View>
+      )}
+
       <TouchableOpacity
         style={[styles.submitButton, (!selectedDisaster || isProcessing) && styles.submitButtonDisabled]}
         onPress={submitEmergencyRequest}
@@ -312,28 +205,23 @@ const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
       >
         <Ionicons name="send" size={24} color="white" />
         <Text style={styles.submitButtonText}>
-          {isProcessing ? 'Sending Help Request...' : 'Send Emergency Request'}
+          {isProcessing ? 'Sending...' : 'Send Emergency Request'}
         </Text>
       </TouchableOpacity>
 
-      {/* Emergency Contacts */}
       <View style={styles.emergencyContacts}>
         <Text style={styles.sectionTitle}>Emergency Contacts</Text>
-        <TouchableOpacity style={styles.contactButton}>
-          <Ionicons name="call" size={20} color="#007AFF" />
-          <Text style={styles.contactText}>National Emergency: 112</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.contactButton}>
-          <Ionicons name="call" size={20} color="#007AFF" />
+        <TouchableOpacity style={[styles.contactButton, { backgroundColor: '#FF3B30' }]}>
+          <Ionicons name="call" size={24} color="white" />
           <Text style={styles.contactText}>Police: 100</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.contactButton}>
-          <Ionicons name="call" size={20} color="#007AFF" />
-          <Text style={styles.contactText}>Fire Brigade: 101</Text>
+        <TouchableOpacity style={[styles.contactButton, { backgroundColor: '#FF6B35' }]}>
+          <Ionicons name="medkit" size={24} color="white" />
+          <Text style={styles.contactText}>Ambulance: 102</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.contactButton}>
-          <Ionicons name="call" size={20} color="#007AFF" />
-          <Text style={styles.contactText}>Ambulance: 108</Text>
+        <TouchableOpacity style={[styles.contactButton, { backgroundColor: '#FF9500' }]}>
+          <Ionicons name="flame" size={24} color="white" />
+          <Text style={styles.contactText}>Fire: 101</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -343,79 +231,48 @@ const NeedHelpScreen: React.FC<NeedHelpScreenProps> = ({ user }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F5F5F7',
   },
   header: {
     alignItems: 'center',
     padding: 20,
     backgroundColor: 'white',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FF3B30',
     marginTop: 10,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#666',
-    marginTop: 5,
-    textAlign: 'center',
+    marginTop: 8,
   },
-  aiSection: {
-    backgroundColor: 'white',
-    margin: 10,
+  disasterSection: {
     padding: 15,
-    borderRadius: 10,
-    elevation: 2,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  voiceButton: {
-    backgroundColor: '#007AFF',
+  featuredCard: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
+    minHeight: 100,
   },
-  voiceButtonActive: {
-    backgroundColor: '#FF3B30',
-  },
-  voiceButtonText: {
+  featuredLabel: {
     color: 'white',
     fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 15,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
-    textAlignVertical: 'top',
-  },
-  processingContainer: {
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  processingText: {
-    color: '#007AFF',
-    fontStyle: 'italic',
-  },
-  disasterSection: {
-    backgroundColor: 'white',
-    margin: 10,
-    padding: 15,
-    borderRadius: 10,
-    elevation: 2,
+    fontSize: 22,
+    marginLeft: 15,
+    flex: 1,
   },
   disasterGrid: {
     flexDirection: 'row',
@@ -425,62 +282,112 @@ const styles = StyleSheet.create({
   disasterCard: {
     width: '48%',
     aspectRatio: 1,
-    borderRadius: 10,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-    elevation: 3,
+    marginBottom: 15,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    padding: 10,
   },
   selectedCard: {
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: '#FFD700',
+    transform: [{ scale: 0.98 }],
+  },
+  checkmark: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
   disasterLabel: {
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
-    marginTop: 5,
-    fontSize: 12,
+    marginTop: 8,
+    fontSize: 13,
+  },
+  descriptionSection: {
+    backgroundColor: 'white',
+    margin: 15,
+    marginTop: 0,
+    padding: 20,
+    borderRadius: 16,
+    elevation: 2,
+  },
+  descriptionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  descriptionInput: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 15,
+    color: '#333',
+    minHeight: 100,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   submitButton: {
     backgroundColor: '#FF3B30',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: 10,
-    padding: 15,
-    borderRadius: 10,
-    elevation: 3,
+    margin: 15,
+    marginTop: 5,
+    padding: 18,
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   submitButtonDisabled: {
     backgroundColor: '#ccc',
+    elevation: 0,
   },
   submitButtonText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 8,
+    fontSize: 18,
+    marginLeft: 10,
   },
   emergencyContacts: {
     backgroundColor: 'white',
-    margin: 10,
-    padding: 15,
-    borderRadius: 10,
+    margin: 15,
+    marginTop: 5,
+    padding: 20,
+    borderRadius: 16,
     elevation: 2,
     marginBottom: 30,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
   },
   contactButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 5,
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    elevation: 2,
   },
   contactText: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginLeft: 10,
-    fontWeight: '500',
+    fontSize: 17,
+    color: 'white',
+    marginLeft: 12,
+    fontWeight: '600',
   },
 });
 

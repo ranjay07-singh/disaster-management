@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User, DisasterType } from '../../types/User';
+import { safetyTranslations } from '../../data/safetyTranslations';
 
 interface SafetyTricksScreenProps {
   user: User;
@@ -20,6 +21,12 @@ interface SafetyTip {
   title: string;
   content: string;
   type: 'do' | 'dont';
+  translations?: {
+    [lang: string]: {
+      title: string;
+      content: string;
+    };
+  };
 }
 
 interface SafetyGuide {
@@ -29,174 +36,1052 @@ interface SafetyGuide {
   color: string;
   tips: SafetyTip[];
   videoUrl?: string;
+  translations?: {
+    [lang: string]: string;
+  };
 }
 
 const SafetyTricksScreen: React.FC<SafetyTricksScreenProps> = ({ user }) => {
   const [selectedGuide, setSelectedGuide] = useState<SafetyGuide | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('English');
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
-  const languages = ['English', 'Hindi', 'Spanish', 'French', 'German'];
+  const languages = [
+    { code: 'en', name: 'English', nativeName: 'English' },
+    { code: 'hi', name: 'Hindi', nativeName: 'हिंदी' },
+    { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
+    { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
+    { code: 'bn', name: 'Bengali', nativeName: 'বাংলা' },
+    { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
+  ];
+
+  // Helper function to get translated text
+  const getTranslatedText = (translations: any, field: 'title' | 'content' | 'label') => {
+    const langCode = languages.find(l => l.name === selectedLanguage)?.code || 'en';
+    if (langCode === 'en') return null;
+    return translations?.[langCode]?.[field] || translations?.[langCode];
+  };
 
   const safetyGuides: SafetyGuide[] = [
+    {
+      disaster: DisasterType.ROAD_ACCIDENT,
+      label: 'Road Accident Safety',
+      icon: 'car',
+      color: '#FF3B30',
+      translations: {
+        hi: 'सड़क दुर्घटना सुरक्षा',
+        ta: 'சாலை விபத்து பாதுகாப்பு',
+        te: 'రోడ్డు ప్రమాద భద్రత',
+        bn: 'সড়ক দুর্ঘটনা নিরাপত্তা',
+        kn: 'ರಸ್ತೆ ಅಪಘಾತ ಸುರಕ್ಷತೆ',
+      },
+      tips: [
+        { 
+          id: '1', 
+          title: 'Move Vehicle to Safety', 
+          content: 'If possible, move your vehicle out of traffic. Turn on hazard lights immediately.', 
+          type: 'do',
+          translations: {
+            hi: { title: 'वाहन को सुरक्षित स्थान पर ले जाएं', content: 'यदि संभव हो तो वाहन को ट्रैफिक से बाहर ले जाएं। तुरंत हजार्ड लाइट चालू करें।' },
+            ta: { title: 'வாகனத்தை பாதுகாப்பிற்கு நகர்த்தவும்', content: 'முடிந்தால், உங்கள் வாகனத்தை போக்குவரத்து பகுதியிலிருந்து நகர்த்தவும். உடனடியாக அபாய விளக்குகளை ஆன் செய்யவும்.' },
+            te: { title: 'వాహనాన్ని భద్రతకు తరలించండి', content: 'వీలైతే, మీ వాహనాన్ని ట్రాఫిక్ నుండి దూరంగా తరలించండి. వెంటనే హజార్డ్ లైట్లు ఆన్ చేయండి.' },
+            bn: { title: 'গাড়ি নিরাপদ স্থানে সরান', content: 'সম্ভব হলে আপনার গাড়িটি ট্রাফিক থেকে সরিয়ে নিন। অবিলম্বে হ্যাজার্ড লাইট চালু করুন।' },
+            kn: { title: 'ವಾಹನವನ್ನು ಸುರಕ್ಷಿತ ಸ್ಥಳಕ್ಕೆ ಸರಿಸಿ', content: 'ಸಾಧ್ಯವಾದರೆ, ನಿಮ್ಮ ವಾಹನವನ್ನು ಟ್ರಾಫಿಕ್‌ನಿಂದ ದೂರ ಸರಿಸಿ. ತಕ್ಷಣ ಹಜಾರ್ಡ್ ಲೈಟ್‌ಗಳನ್ನು ಆನ್ ಮಾಡಿ.' },
+          }
+        },
+        { 
+          id: '2', 
+          title: 'Call Emergency Services', 
+          content: 'Dial 108 for ambulance or 100 for police. Provide exact location.', 
+          type: 'do',
+          translations: {
+            hi: { title: 'आपातकालीन सेवाओं को कॉल करें', content: 'एंबुलेंस के लिए 108 या पुलिस के लिए 100 डायल करें। सटीक स्थान बताएं।' },
+            ta: { title: 'அவசர சேவைகளை அழையுங்கள்', content: 'ஆம்புலன்ஸுக்கு 108 அல்லது காவல்துறைக்கு 100 ஐ டயல் செய்யவும். துல்லியமான இடத்தை வழங்கவும்.' },
+            te: { title: 'అత్యవసర సేవలను కాల్ చేయండి', content: 'అంబులెన్స్ కోసం 108 లేదా పోలీసుల కోసం 100 డయల్ చేయండి. ఖచ్చితమైన స్థానం అందించండి.' },
+            bn: { title: 'জরুরি সেবা কল করুন', content: 'অ্যাম্বুলেন্সের জন্য 108 বা পুলিশের জন্য 100 ডায়াল করুন। সঠিক অবস্থান প্রদান করুন।' },
+            kn: { title: 'ತುರ್ತು ಸೇವೆಗಳಿಗೆ ಕರೆ ಮಾಡಿ', content: 'ಆಂಬ್ಯುಲೆನ್ಸ್‌ಗಾಗಿ 108 ಅಥವಾ ಪೊಲೀಸರಿಗಾಗಿ 100 ಡಯಲ್ ಮಾಡಿ. ನಿಖರವಾದ ಸ್ಥಳವನ್ನು ಒದಗಿಸಿ.' },
+          }
+        },
+        { 
+          id: '3', 
+          title: 'Check for Injuries', 
+          content: 'Check yourself and passengers for injuries. Apply first aid if trained.', 
+          type: 'do',
+          translations: {
+            hi: { title: 'चोटों की जांच करें', content: 'अपने और यात्रियों की चोटों की जांच करें। प्रशिक्षित होने पर प्राथमिक उपचार करें।' },
+            ta: { title: 'காயங்களை சரிபார்க்கவும்', content: 'உங்களையும் பயணிகளையும் காயங்களுக்காக சரிபார்க்கவும். பயிற்சி பெற்றிருந்தால் முதலுதவி செய்யவும்.' },
+            te: { title: 'గాయాలను తనిఖీ చేయండి', content: 'మిమ్మల్ని మరియు ప్రయాణికులను గాయాల కోసం తనిఖీ చేయండి. శిక్షణ పొందినట్లయితే ప్రథమ చికిత్స చేయండి.' },
+            bn: { title: 'আঘাত পরীক্ষা করুন', content: 'নিজেকে এবং যাত্রীদের আঘাতের জন্য পরীক্ষা করুন। প্রশিক্ষিত হলে প্রাথমিক চিকিৎসা প্রয়োগ করুন।' },
+            kn: { title: 'ಗಾಯಗಳನ್ನು ಪರಿಶೀಲಿಸಿ', content: 'ನಿಮ್ಮನ್ನು ಮತ್ತು ಪ್ರಯಾಣಿಕರನ್ನು ಗಾಯಗಳಿಗಾಗಿ ಪರಿಶೀಲಿಸಿ. ತರಬೇತಿ ಪಡೆದಿದ್ದರೆ ಪ್ರಥಮ ಚಿಕಿತ್ಸೆ ನೀಡಿ.' },
+          }
+        },
+        { 
+          id: '4', 
+          title: 'Document the Scene', 
+          content: 'Take photos of damage, road conditions for insurance purposes.', 
+          type: 'do',
+          translations: {
+            hi: { title: 'दृश्य का दस्तावेज़ीकरण करें', content: 'बीमा के लिए क्षति, सड़क की स्थिति की तस्वीरें लें।' },
+            ta: { title: 'காட்சியை ஆவணப்படுத்தவும்', content: 'காப்பீட்டிற்காக சேதம், சாலை நிலைமைகளின் புகைப்படங்களை எடுக்கவும்.' },
+            te: { title: 'దృశ్యాన్ని డాక్యుమెంట్ చేయండి', content: 'బీమా కోసం నష్టం, రహదారి పరిస్థితుల ఫోటోలు తీయండి.' },
+            bn: { title: 'দৃশ্য নথিভুক্ত করুন', content: 'বীমার জন্য ক্ষতি, রাস্তার অবস্থার ফটো তুলুন।' },
+            kn: { title: 'ದೃಶ್ಯವನ್ನು ದಾಖಲಿಸಿ', content: 'ವಿಮೆಗಾಗಿ ಹಾನಿ, ರಸ್ತೆ ಪರಿಸ್ಥಿತಿಗಳ ಫೋಟೋಗಳನ್ನು ತೆಗೆಯಿರಿ.' },
+          }
+        },
+        { 
+          id: '5', 
+          title: 'Don\'t Leave the Scene', 
+          content: 'Never leave before police arrive. It\'s illegal and serious offense.', 
+          type: 'dont',
+          translations: {
+            hi: { title: 'घटनास्थल न छोड़ें', content: 'पुलिस के आने से पहले न छोड़ें। यह अवैध और गंभीर अपराध है।' },
+            ta: { title: 'காட்சியை விட்டு வெளியேற வேண்டாம்', content: 'காவல்துறை வரும் வரை வெளியேற வேண்டாம். இது சட்டவிரோதமானது மற்றும் கடுமையான குற்றம்.' },
+            te: { title: 'దృశ్యాన్ని విడిచిపెట్టకండి', content: 'పోలీసులు వచ్చే వరకు వదిలి వెళ్లకండి. ఇది చట్టవిరుద్ధం మరియు తీవ్రమైన నేరం.' },
+            bn: { title: 'দৃশ্য ছেড়ে যাবেন না', content: 'পুলিশ আসার আগে ছেড়ে যাবেন না। এটি অবৈধ এবং গুরুতর অপরাধ।' },
+            kn: { title: 'ದೃಶ್ಯವನ್ನು ಬಿಡಬೇಡಿ', content: 'ಪೊಲೀಸರು ಬರುವವರೆಗೆ ಬಿಡಬೇಡಿ. ಇದು ಕಾನೂನುಬಾಹಿರ ಮತ್ತು ಗಂಭೀರ ಅಪರಾಧ.' },
+          }
+        },
+        { 
+          id: '6', 
+          title: 'Don\'t Move Seriously Injured', 
+          content: 'Don\'t move seriously injured unless in immediate danger like fire.', 
+          type: 'dont',
+          translations: {
+            hi: { title: 'गंभीर रूप से घायलों को न हिलाएं', content: 'आग जैसे तत्काल खतरे में न हों तो घायलों को न हिलाएं।' },
+            ta: { title: 'கடுமையாக காயமடைந்தவர்களை நகர்த்த வேண்டாம்', content: 'தீ போன்ற உடனடி ஆபத்தில் இல்லாவிட்டால் காயமடைந்தவர்களை நகர்த்த வேண்டாம்.' },
+            te: { title: 'తీవ్రంగా గాయపడినవారిని కదపకండి', content: 'అగ్ని వంటి తక్షణ ప్రమాదంలో లేకుంటే గాయపడినవారిని కదపకండి.' },
+            bn: { title: 'গুরুতরভাবে আহতদের সরান না', content: 'আগুনের মতো তাৎক্ষণিক বিপদে না থাকলে আহতদের সরাবেন না।' },
+            kn: { title: 'ಗಂಭೀರವಾಗಿ ಗಾಯಗೊಂಡವರನ್ನು ಸರಿಸಬೇಡಿ', content: 'ಬೆಂಕಿಯಂತಹ ತಕ್ಷಣದ ಅಪಾಯದಲ್ಲಿಲ್ಲದಿದ್ದರೆ ಗಾಯಗೊಂಡವರನ್ನು ಸರಿಸಬೇಡಿ.' },
+          }
+        },
+        { 
+          id: '7', 
+          title: 'Don\'t Admit Fault', 
+          content: 'Don\'t admit fault at scene. Let insurance and authorities determine responsibility.', 
+          type: 'dont',
+          translations: {
+            hi: { title: 'दोष स्वीकार न करें', content: 'घटनास्थल पर दोष स्वीकार न करें। बीमा और अधिकारियों को जिम्मेदारी तय करने दें।' },
+            ta: { title: 'தவறை ஒப்புக்கொள்ள வேண்டாம்', content: 'காட்சியில் தவறை ஒப்புக்கொள்ள வேண்டாம். காப்பீடு மற்றும் அதிகாரிகள் பொறுப்பை தீர்மானிக்கட்டும்.' },
+            te: { title: 'తప్పును అంగీకరించకండి', content: 'దృశ్యంలో తప్పును అంగీకరించకండి. బీమా మరియు అధికారులకు బాధ్యతను నిర్ణయించనివ్వండి.' },
+            bn: { title: 'দোষ স্বীকার করবেন না', content: 'দৃশ্যে দোষ স্বীকার করবেন না। বীমা এবং কর্তৃপক্ষকে দায়িত্ব নির্ধারণ করতে দিন।' },
+            kn: { title: 'ತಪ್ಪನ್ನು ಒಪ್ಪಿಕೊಳ್ಳಬೇಡಿ', content: 'ದೃಶ್ಯದಲ್ಲಿ ತಪ್ಪನ್ನು ಒಪ್ಪಿಕೊಳ್ಳಬೇಡಿ. ವಿಮಾ ಮತ್ತು ಅಧಿಕಾರಿಗಳಿಗೆ ಜವಾಬ್ದಾರಿಯನ್ನು ನಿರ್ಧರಿಸಲು ಅವಕಾಶ ಮಾಡಿಕೊಡಿ.' },
+          }
+        },
+        { 
+          id: '8', 
+          title: 'Don\'t Argue or Fight', 
+          content: 'Don\'t get into arguments or fights. Stay calm and wait for authorities.', 
+          type: 'dont',
+          translations: {
+            hi: { title: 'बहस या झगड़ा न करें', content: 'बहस या झगड़े में न पड़ें। शांत रहें और अधिकारियों का इंतजार करें।' },
+            ta: { title: 'வாதிடவோ சண்டையிடவோ வேண்டாம்', content: 'வாக்குவாதம் அல்லது சண்டைகளில் ஈடுபட வேண்டாம். அமைதியாக இருங்கள் மற்றும் அதிகாரிகளுக்காக காத்திருங்கள்.' },
+            te: { title: 'వాదించవద్దు లేదా పోరాడవద్దు', content: 'వాదనలు లేదా పోరాటాల్లో పాల్గొనవద్దు. ప్రశాంతంగా ఉండండి మరియు అధికారుల కోసం వేచి ఉండండి.' },
+            bn: { title: 'তর্ক বা মারামারি করবেন না', content: 'তর্ক বা মারামারিতে জড়াবেন না। শান্ত থাকুন এবং কর্তৃপক্ষের জন্য অপেক্ষা করুন।' },
+            kn: { title: 'ವಾದ ಅಥವಾ ಜಗಳ ಮಾಡಬೇಡಿ', content: 'ವಾದಗಳು ಅಥವಾ ಜಗಳಗಳಲ್ಲಿ ತೊಡಗಬೇಡಿ. ಶಾಂತವಾಗಿರಿ ಮತ್ತು ಅಧಿಕಾರಿಗಳಿಗಾಗಿ ಕಾಯಿರಿ.' },
+          }
+        },
+      ],
+    },
     {
       disaster: DisasterType.FLOOD,
       label: 'Flood Safety',
       icon: 'water',
       color: '#4A90E2',
+      translations: {
+        hi: 'बाढ़ सुरक्षा',
+        ta: 'வெள்ளப் பாதுகாப்பு',
+        te: 'వరద భద్రత',
+        bn: 'বন্যা নিরাপত্তা',
+        kn: 'ಪ್ರವಾಹ ಸುರಕ್ಷತೆ',
+      },
       tips: [
-        {
-          id: '1',
-          title: 'Move to Higher Ground',
-          content: 'Immediately move to higher ground or upper floors of buildings.',
+        { 
+          id: '1', 
+          title: 'Move to Higher Ground', 
+          content: 'Immediately move to higher ground or upper floors of buildings.', 
           type: 'do',
+          translations: {
+            hi: { title: 'ऊंची जगह पर जाएं', content: 'तुरंत ऊंची जगह या इमारतों की ऊपरी मंजिलों पर चले जाएं।' },
+            ta: { title: 'உயர்ந்த இடத்திற்கு செல்லுங்கள்', content: 'உடனடியாக உயர்ந்த நிலம் அல்லது கட்டிடங்களின் மேல் தளங்களுக்கு செல்லவும்।' },
+            te: { title: 'ఎత్తైన ప్రదేశానికి వెళ్లండి', content: 'వెంటనే ఎత్తైన ప్రదేశానికి లేదా భవనాల పై అంతస్తులకు వెళ్లండి।' },
+            bn: { title: 'উঁচু জায়গায় যান', content: 'অবিলম্বে উঁচু জমি বা ভবনের উপরের তলায় চলে যান।' },
+            kn: { title: 'ಎತ್ತರದ ಸ್ಥಳಕ್ಕೆ ಹೋಗಿ', content: 'ತಕ್ಷಣ ಎತ್ತರದ ನೆಲಕ್ಕೆ ಅಥವಾ ಕಟ್ಟಡಗಳ ಮೇಲಿನ ಮಹಡಿಗಳಿಗೆ ಹೋಗಿ।' },
+          }
         },
-        {
-          id: '2',
-          title: 'Avoid Walking in Water',
-          content: 'Never walk through moving water. Even 6 inches can knock you down.',
-          type: 'dont',
-        },
-        {
-          id: '3',
-          title: 'Stay Informed',
-          content: 'Keep a battery-powered or hand-crank radio for emergency updates.',
+        { 
+          id: '2', 
+          title: 'Turn Off Utilities', 
+          content: 'Turn off electricity, gas before evacuating if time permits.', 
           type: 'do',
+          translations: {
+            hi: { title: 'उपयोगिताएं बंद करें', content: 'समय हो तो निकलने से पहले बिजली, गैस बंद कर दें।' },
+            ta: { title: 'பயன்பாடுகளை நிறுத்துங்கள்', content: 'நேரம் இருந்தால் வெளியேறும் முன் மின்சாரம், எரிவாயுவை நிறுத்தவும்।' },
+            te: { title: 'యుటిలిటీలను ఆఫ్ చేయండి', content: 'సమయం ఉంటే ఖాళీ చేసే ముందు విద్యుత్, గ్యాస్ ఆఫ్ చేయండి।' },
+            bn: { title: 'ইউটিলিটি বন্ধ করুন', content: 'সময় থাকলে সরে যাওয়ার আগে বিদ্যুৎ, গ্যাস বন্ধ করুন।' },
+            kn: { title: 'ಉಪಯುಕ್ತತೆಗಳನ್ನು ಆಫ್ ಮಾಡಿ', content: 'ಸಮಯ ಇದ್ದರೆ ಖಾಲಿ ಮಾಡುವ ಮೊದಲು ವಿದ್ಯುತ್, ಅನಿಲವನ್ನು ಆಫ್ ಮಾಡಿ।' },
+          }
         },
-        {
-          id: '4',
-          title: 'Don\'t Drive Through Flooded Roads',
-          content: 'Turn around, don\'t drown. Most flood deaths occur in vehicles.',
+        { 
+          id: '3', 
+          title: 'Stay Informed', 
+          content: 'Keep battery-powered radio for emergency weather updates.', 
+          type: 'do',
+          translations: {
+            hi: { title: 'सूचित रहें', content: 'आपातकालीन मौसम अपडेट के लिए बैटरी चालित रेडियो रखें।' },
+            ta: { title: 'தகவல் பெறுங்கள்', content: 'அவசர காலநிலை புதுப்பிப்புகளுக்கு பேட்டரி இயங்கும் ரேடியோவை வைத்திருங்கள்।' },
+            te: { title: 'సమాచారంతో ఉండండి', content: 'అత్యవసర వాతావరణ నవీకరణల కోసం బ్యాటరీ ఆధారిత రేడియోను ఉంచండి।' },
+            bn: { title: 'সচেতন থাকুন', content: 'জরুরি আবহাওয়া আপডেটের জন্য ব্যাটারি চালিত রেডিও রাখুন।' },
+            kn: { title: 'ಮಾಹಿತಿಯಿಂದ ಇರಿ', content: 'ತುರ್ತು ಹವಾಮಾನ ನವೀಕರಣಗಳಿಗಾಗಿ ಬ್ಯಾಟರಿ ಚಾಲಿತ ರೇಡಿಯೊವನ್ನು ಇಟ್ಟುಕೊಳ್ಳಿ।' },
+          }
+        },
+        { 
+          id: '4', 
+          title: 'Prepare Emergency Kit', 
+          content: 'Have emergency kit ready with food, water, medicines for 3 days.', 
+          type: 'do',
+          translations: {
+            hi: { title: 'आपातकालीन किट तैयार रखें', content: '3 दिनों के लिए भोजन, पानी, दवाओं के साथ आपातकालीन किट तैयार रखें।' },
+            ta: { title: 'அவசர கருவிப்பெட்டி தயார் செய்யுங்கள்', content: '3 நாட்களுக்கு உணவு, தண்ணீர், மருந்துகளுடன் அவசர கருவிப்பெட்டியை தயாராக வைத்திருங்கள்।' },
+            te: { title: 'అత్యవసర కిట్ సిద్ధం చేయండి', content: '3 రోజులకు ఆహారం, నీరు, మందులతో అత్యవసర కిట్ సిద్ధంగా ఉంచండి।' },
+            bn: { title: 'জরুরি কিট প্রস্তুত রাখুন', content: '3 দিনের জন্য খাবার, জল, ওষুধ সহ জরুরি কিট প্রস্তুত রাখুন।' },
+            kn: { title: 'ತುರ್ತು ಕಿಟ್ ಸಿದ್ಧಪಡಿಸಿ', content: '3 ದಿನಗಳ ಆಹಾರ, ನೀರು, ಔಷಧಿಗಳೊಂದಿಗೆ ತುರ್ತು ಕಿಟ್ ಸಿದ್ಧವಾಗಿ ಇರಿಸಿ।' },
+          }
+        },
+        { 
+          id: '5', 
+          title: 'Don\'t Walk in Floodwater', 
+          content: 'Never walk through moving water. 6 inches can knock you down.', 
           type: 'dont',
+          translations: {
+            hi: { title: 'बाढ़ के पानी में न चलें', content: 'कभी भी बहते पानी में न चलें। 6 इंच पानी आपको गिरा सकता है।' },
+            ta: { title: 'வெள்ளத்தில் நடக்க வேண்டாம்', content: 'ஓடும் நீரில் ஒருபோதும் நடக்க வேண்டாம். 6 அங்குல நீர் உங்களை வீழ்த்தலாம்।' },
+            te: { title: 'వరద నీటిలో నడవకండి', content: 'ప్రవహించే నీటిలో ఎప్పుడూ నడవకండి. 6 అంగుళాలు మిమ్మల్ని పడగొట్టగలవు।' },
+            bn: { title: 'বন্যার জলে হাঁটবেন না', content: 'কখনও প্রবাহিত জলে হাঁটবেন না। 6 ইঞ্চি জল আপনাকে ফেলে দিতে পারে।' },
+            kn: { title: 'ಪ್ರವಾಹದ ನೀರಿನಲ್ಲಿ ನಡೆಯಬೇಡಿ', content: 'ಹರಿಯುವ ನೀರಿನಲ್ಲಿ ಎಂದಿಗೂ ನಡೆಯಬೇಡಿ. 6 ಇಂಚು ನೀರು ನಿಮ್ಮನ್ನು ಕೆಡವಬಹುದು।' },
+          }
+        },
+        { 
+          id: '6', 
+          title: 'Don\'t Drive Through Floods', 
+          content: 'Turn around, don\'t drown. Most flood deaths occur in vehicles.', 
+          type: 'dont',
+          translations: {
+            hi: { title: 'बाढ़ में गाड़ी न चलाएं', content: 'मुड़ जाएं, डूबें नहीं। अधिकांश बाढ़ में मौतें वाहनों में होती हैं।' },
+            ta: { title: 'வெள்ளத்தில் வாகனம் ஓட்ட வேண்டாம்', content: 'திரும்புங்கள், மூழ்க வேண்டாம். பெரும்பாலான வெள்ள மரணங்கள் வாகனங்களில் நிகழ்கின்றன।' },
+            te: { title: 'వరదల్లో వాహనం నడపకండి', content: 'తిరిగి వెళ్లండి, మునిగిపోవద్దు. చాలా వరద మరణాలు వాహనాల్లో సంభవిస్తాయి।' },
+            bn: { title: 'বন্যায় গাড়ি চালাবেন না', content: 'ঘুরে যান, ডুববেন না। বেশিরভাগ বন্যা মৃত্যু যানবাহনে ঘটে।' },
+            kn: { title: 'ಪ್ರವಾಹದಲ್ಲಿ ವಾಹನ ಓಡಿಸಬೇಡಿ', content: 'ತಿರುಗಿ ಹೋಗಿ, ಮುಳುಗಬೇಡಿ. ಹೆಚ್ಚಿನ ಪ್ರವಾಹ ಸಾವುಗಳು ವಾಹನಗಳಲ್ಲಿ ಸಂಭವಿಸುತ್ತವೆ।' },
+          }
+        },
+        { 
+          id: '7', 
+          title: 'Don\'t Touch Electrical Equipment', 
+          content: 'Don\'t touch electrical equipment if wet or in water.', 
+          type: 'dont',
+          translations: {
+            hi: { title: 'बिजली के उपकरण न छुएं', content: 'गीले हों या पानी में हों तो बिजली के उपकरण न छुएं।' },
+            ta: { title: 'மின்சார உபகரணங்களைத் தொடாதீர்கள்', content: 'ஈரமாக அல்லது தண்ணீரில் இருந்தால் மின்சார உபகரணங்களைத் தொடாதீர்கள்।' },
+            te: { title: 'విద్యుత్ పరికరాలను తాకవద్దు', content: 'తడిగా లేదా నీటిలో ఉంటే విద్యుత్ పరికరాలను తాకవద్దు।' },
+            bn: { title: 'বৈদ্যুতিক সরঞ্জাম স্পর্শ করবেন না', content: 'ভেজা বা জলে থাকলে বৈদ্যুতিক সরঞ্জাম স্পর্শ করবেন না।' },
+            kn: { title: 'ವಿದ್ಯುತ್ ಉಪಕರಣಗಳನ್ನು ಮುಟ್ಟಬೇಡಿ', content: 'ತೇವವಾಗಿದ್ದರೆ ಅಥವಾ ನೀರಿನಲ್ಲಿದ್ದರೆ ವಿದ್ಯುತ್ ಉಪಕರಣಗಳನ್ನು ಮುಟ್ಟಬೇಡಿ।' },
+          }
+        },
+        { 
+          id: '8', 
+          title: 'Don\'t Return Too Early', 
+          content: 'Don\'t return home until authorities say it\'s safe.', 
+          type: 'dont',
+          translations: {
+            hi: { title: 'जल्दी वापस न लौटें', content: 'अधिकारी सुरक्षित कहें तब तक घर वापस न लौटें।' },
+            ta: { title: 'சீக்கிரம் திரும்ப வேண்டாம்', content: 'அதிகாரிகள் பாதுகாப்பானது என்று கூறும் வரை வீட்டிற்குத் திரும்ப வேண்டாம்।' },
+            te: { title: 'త్వరగా తిరిగి రావద్దు', content: 'అధికారులు సురక్షితమని చెప్పే వరకు ఇంటికి తిరిగి రావద్దు।' },
+            bn: { title: 'তাড়াতাড়ি ফিরবেন না', content: 'কর্তৃপক্ষ নিরাপদ বলার আগে বাড়ি ফিরবেন না।' },
+            kn: { title: 'ಬೇಗ ಹಿಂತಿರುಗಬೇಡಿ', content: 'ಅಧಿಕಾರಿಗಳು ಸುರಕ್ಷಿತವೆಂದು ಹೇಳುವವರೆಗೆ ಮನೆಗೆ ಹಿಂತಿರುಗಬೇಡಿ।' },
+          }
         },
       ],
-      videoUrl: 'https://example.com/flood-safety-video',
     },
     {
       disaster: DisasterType.EARTHQUAKE,
       label: 'Earthquake Safety',
+      translations: {
+        hi: 'भूकंप सुरक्षा',
+        ta: 'நிலநடுக்க பாதுகாப்பு',
+        te: 'భూకంప భద్రత',
+        bn: 'ভূমিকম্প নিরাপত্তা',
+        kn: 'ಭೂಕಂಪ ಸುರಕ್ಷತೆ',
+      },
       icon: 'globe',
       color: '#8B4513',
       tips: [
-        {
-          id: '1',
-          title: 'Drop, Cover, and Hold On',
-          content: 'Drop to hands and knees, take cover under a desk, and hold on.',
-          type: 'do',
+        { id: '1', title: 'Drop, Cover, and Hold On', content: 'Drop to hands and knees, take cover under desk, hold on until shaking stops.', type: 'do',
+          translations: {
+            hi: { title: 'झुकें, ढकें और पकड़ें', content: 'हाथों और घुटनों के बल झुकें, मेज के नीचे छिपें, कंपन बंद होने तक पकड़े रहें।' },
+            ta: { title: 'குனிந்து, மறைந்து, பிடித்துக் கொள்ளுங்கள்', content: 'கைகள் மற்றும் முழங்கால்களில் குனியுங்கள், மேசையின் கீழ் பாதுகாப்பு எடுங்கள், அசைவு நிற்கும் வரை பிடித்துக் கொள்ளுங்கள்।' },
+            te: { title: 'వంగండి, కప్పుకోండి మరియు పట్టుకోండి', content: 'చేతులు మరియు మోకాళ్లపై వంగండి, డెస్క్ కింద కవర్ తీసుకోండి, వణుకు ఆగే వరకు పట్టుకోండి।' },
+            bn: { title: 'ঝুঁকুন, ঢাকুন এবং ধরে রাখুন', content: 'হাত এবং হাঁটুতে নিচু হন, ডেস্কের নিচে আশ্রয় নিন, কাঁপুনি বন্ধ না হওয়া পর্যন্ত ধরে রাখুন।' },
+            kn: { title: 'ಕೆಳಗೆ ಬಿದ್ದು, ಮುಚ್ಚಿಕೊಂಡು ಹಿಡಿದುಕೊಳ್ಳಿ', content: 'ಕೈಗಳು ಮತ್ತು ಮೊಣಕಾಲುಗಳ ಮೇಲೆ ಕೆಳಗೆ ಬೀಳಿ, ಮೇಜಿನ ಕೆಳಗೆ ಆವರಿಸಿಕೊಳ್ಳಿ, ಅಲುಗಾಡುವಿಕೆ ನಿಲ್ಲುವವರೆಗೆ ಹಿಡಿದುಕೊಳ್ಳಿ।' },
+          }
         },
-        {
-          id: '2',
-          title: 'Don\'t Run Outside',
-          content: 'Don\'t run outside during shaking. Most injuries occur from falling debris.',
-          type: 'dont',
+        { id: '2', title: 'Stay Indoors', content: 'Stay inside until shaking stops. Most injuries happen when people move during earthquake.', type: 'do',
+          translations: {
+            hi: { title: 'अंदर रहें', content: 'कंपन बंद होने तक अंदर रहें। भूकंप के दौरान चलने से अधिकतर चोटें लगती हैं।' },
+            ta: { title: 'உள்ளே இருங்கள்', content: 'அசைவு நிற்கும் வரை உள்ளே இருங்கள். நிலநடுக்கத்தின் போது நகரும்போது பெரும்பாலான காயங்கள் நிகழ்கின்றன।' },
+            te: { title: 'లోపల ఉండండి', content: 'వణుకు ఆగే వరకు లోపల ఉండండి. భూకంపం సమయంలో కదిలినప్పుడు చాలా గాయాలు జరుగుతాయి।' },
+            bn: { title: 'ভিতরে থাকুন', content: 'কাঁপুনি বন্ধ না হওয়া পর্যন্ত ভিতরে থাকুন। ভূমিকম্পের সময় চলাচল করলে বেশিরভাগ আঘাত হয়।' },
+            kn: { title: 'ಒಳಗಡೆ ಇರಿ', content: 'ಅಲುಗಾಡುವಿಕೆ ನಿಲ್ಲುವವರೆಗೆ ಒಳಗಡೆ ಇರಿ. ಭೂಕಂಪದ ಸಮಯದಲ್ಲಿ ಚಲಿಸಿದಾಗ ಹೆಚ್ಚಿನ ಗಾಯಗಳು ಸಂಭವಿಸುತ್ತವೆ।' },
+          }
         },
-        {
-          id: '3',
-          title: 'Stay Away from Glass',
-          content: 'Avoid windows, mirrors, and glass that can shatter.',
-          type: 'do',
+        { id: '3', title: 'Protect Your Head', content: 'Use pillow, book, or arms to protect your head and neck from falling debris.', type: 'do',
+          translations: {
+            hi: { title: 'अपने सिर की रक्षा करें', content: 'गिरते मलबे से अपने सिर और गर्दन की रक्षा के लिए तकिया, किताब या हाथों का उपयोग करें।' },
+            ta: { title: 'உங்கள் தலையை பாதுகாக்கவும்', content: 'விழும் இடிபாடுகளிலிருந்து உங்கள் தலை மற்றும் கழுத்தை பாதுகாக்க தலையணை, புத்தகம் அல்லது கைகளைப் பயன்படுத்தவும்।' },
+            te: { title: 'మీ తలను రక్షించుకోండి', content: 'పడిపోయే శిధిలాల నుండి మీ తల మరియు మెడను రక్షించుకోవడానికి దిండు, పుస్తకం లేదా చేతులను ఉపయోగించండి।' },
+            bn: { title: 'আপনার মাথা রক্ষা করুন', content: 'পড়ন্ত ধ্বংসাবশেষ থেকে আপনার মাথা এবং ঘাড় রক্ষা করতে বালিশ, বই বা বাহু ব্যবহার করুন।' },
+            kn: { title: 'ನಿಮ್ಮ ತಲೆಯನ್ನು ರಕ್ಷಿಸಿಕೊಳ್ಳಿ', content: 'ಬೀಳುವ ಭಗ್ನಾವಶೇಷಗಳಿಂದ ನಿಮ್ಮ ತಲೆ ಮತ್ತು ಕತ್ತನ್ನು ರಕ್ಷಿಸಲು ದಿಂಬು, ಪುಸ್ತಕ ಅಥವಾ ತೋಳುಗಳನ್ನು ಬಳಸಿ।' },
+          }
         },
-        {
-          id: '4',
-          title: 'Don\'t Stand in Doorways',
-          content: 'Doorways are not safer than other parts of the house.',
-          type: 'dont',
+        { id: '4', title: 'Stay Away from Windows', content: 'Move away from windows, mirrors, hanging objects that can fall or shatter.', type: 'do',
+          translations: {
+            hi: { title: 'खिड़कियों से दूर रहें', content: 'खिड़कियों, दर्पणों, लटकती वस्तुओं से दूर रहें जो गिर या टूट सकती हैं।' },
+            ta: { title: 'ஜன்னல்களிலிருந்து விலகி இருங்கள்', content: 'ஜன்னல்கள், கண்ணாடிகள், தொங்கும் பொருட்களிலிருந்து விலகி செல்லுங்கள் அவை விழலாம் அல்லது உடையலாம்।' },
+            te: { title: 'కిటికీల నుండి దూరంగా ఉండండి', content: 'కిటికీలు, అద్దాలు, వేలాడే వస్తువుల నుండి దూరంగా వెళ్లండి అవి పడిపోవచ్చు లేదా పగులగొట్టవచ్చు।' },
+            bn: { title: 'জানালা থেকে দূরে থাকুন', content: 'জানালা, আয়না, ঝুলন্ত বস্তু থেকে দূরে সরে যান যা পড়ে বা ভেঙে যেতে পারে।' },
+            kn: { title: 'ಕಿಟಕಿಗಳಿಂದ ದೂರವಿರಿ', content: 'ಕಿಟಕಿಗಳು, ಕನ್ನಡಿಗಳು, ತೂಗಾಡುವ ವಸ್ತುಗಳಿಂದ ದೂರ ಸರಿಯಿರಿ ಅವು ಬೀಳಬಹುದು ಅಥವಾ ಒಡೆಯಬಹುದು।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Run Outside', content: 'Don\'t run outside during shaking. Most injuries from falling debris outside buildings.', type: 'dont',
+          translations: {
+            hi: { title: 'बाहर न भागें', content: 'कंपन के दौरान बाहर न भागें। इमारतों के बाहर गिरते मलबे से अधिकतर चोटें लगती हैं।' },
+            ta: { title: 'வெளியே ஓடாதீர்கள்', content: 'அசைவின் போது வெளியே ஓடாதீர்கள். கட்டிடங்களுக்கு வெளியே விழும் இடிபாடுகளால் பெரும்பாலான காயங்கள்।' },
+            te: { title: 'బయటకు పరుగెత్తవద్దు', content: 'వణుకు సమయంలో బయటకు పరుగెత్తవద్దు. భవనాల వెలుపల పడే శిధిలాల వల్ల చాలా గాయాలు జరుగుతాయి।' },
+            bn: { title: 'বাইরে দৌড়াবেন না', content: 'কাঁপানোর সময় বাইরে দৌড়াবেন না। বিল্ডিংয়ের বাইরে পড়া ধ্বংসাবশেষ থেকে বেশিরভাগ আঘাত।' },
+            kn: { title: 'ಹೊರಗೆ ಓಡಬೇಡಿ', content: 'ಅಲುಗಾಡುವಾಗ ಹೊರಗೆ ಓಡಬೇಡಿ. ಕಟ್ಟಡಗಳ ಹೊರಗೆ ಬೀಳುವ ಭಗ್ನಾವಶೇಷಗಳಿಂದ ಹೆಚ್ಚಿನ ಗಾಯಗಳು।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Use Elevators', content: 'Never use elevators during or after earthquake. Use stairs only for evacuation.', type: 'dont',
+          translations: {
+            hi: { title: 'लिफ्ट का उपयोग न करें', content: 'भूकंप के दौरान या बाद में कभी भी लिफ्ट का उपयोग न करें। निकासी के लिए केवल सीढ़ियों का उपयोग करें।' },
+            ta: { title: 'லிஃப்ட்களைப் பயன்படுத்தாதீர்கள்', content: 'நிலநடுக்கத்தின் போது அல்லது பின்னர் ஒருபோதும் லிஃப்ட்களைப் பயன்படுத்தாதீர்கள். வெளியேற்றத்திற்கு படிக்கட்டுகளை மட்டும் பயன்படுத்தவும்।' },
+            te: { title: 'ఎలివేటర్లను ఉపయోగించవద్దు', content: 'భూకంపం సమయంలో లేదా తర్వాత ఎలివేటర్లను ఎప్పుడూ ఉపయోగించవద్దు. తరలింపు కోసం మెట్లు మాత్రమే ఉపయోగించండి।' },
+            bn: { title: 'লিফট ব্যবহার করবেন না', content: 'ভূমিকম্পের সময় বা পরে কখনই লিফট ব্যবহার করবেন না। সরিয়ে নেওয়ার জন্য শুধুমাত্র সিঁড়ি ব্যবহার করুন।' },
+            kn: { title: 'ಎಲಿವೇಟರ್‌ಗಳನ್ನು ಬಳಸಬೇಡಿ', content: 'ಭೂಕಂಪದ ಸಮಯದಲ್ಲಿ ಅಥವಾ ನಂತರ ಎಂದಿಗೂ ಎಲಿವೇಟರ್‌ಗಳನ್ನು ಬಳಸಬೇಡಿ. ಸ್ಥಳಾಂತರಿಸಲು ಮೆಟ್ಟಿಲುಗಳನ್ನು ಮಾತ್ರ ಬಳಸಿ।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Stand in Doorways', content: 'Doorways are not safer. Modern doorframes don\'t offer protection.', type: 'dont',
+          translations: {
+            hi: { title: 'दरवाजों में खड़े न हों', content: 'दरवाजे सुरक्षित नहीं हैं। आधुनिक दरवाजे सुरक्षा प्रदान नहीं करते।' },
+            ta: { title: 'வாசல்களில் நிற்காதீர்கள்', content: 'வாசல்கள் பாதுகாப்பானவை அல்ல. நவீன கதவு சட்டங்கள் பாதுகாப்பை வழங்காது।' },
+            te: { title: 'తలుపుల్లో నిలబడవద్దు', content: 'తలుపులు సురక్షితం కాదు. ఆధునిక తలుపు చట్రాలు రక్షణ అందించవు।' },
+            bn: { title: 'দরজায় দাঁড়াবেন না', content: 'দরজা নিরাপদ নয়। আধুনিক দরজার ফ্রেম সুরক্ষা প্রদান করে না।' },
+            kn: { title: 'ಬಾಗಿಲುಗಳಲ್ಲಿ ನಿಲ್ಲಬೇಡಿ', content: 'ಬಾಗಿಲುಗಳು ಸುರಕ್ಷಿತವಲ್ಲ. ಆಧುನಿಕ ಬಾಗಿಲು ಚೌಕಟ್ಟುಗಳು ರಕ್ಷಣೆ ನೀಡುವುದಿಲ್ಲ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Light Matches', content: 'Don\'t use matches, candles, or flames. Gas leaks may be present after quake.', type: 'dont',
+          translations: {
+            hi: { title: 'माचिस न जलाएं', content: 'माचिस, मोमबत्ती या आग का उपयोग न करें। भूकंप के बाद गैस लीक हो सकती है।' },
+            ta: { title: 'தீக்குச்சிகளை பற்ற வைக்காதீர்கள்', content: 'தீப்பெட்டி, மெழுகுவர்த்திகள் அல்லது தீப்பிழம்புகளை பயன்படுत்தாதீர்கள். நிலநடுக்கத்திற்குப் பிறகு எரிவாயு கசிவு இருக்கலாம்।' },
+            te: { title: 'అగ్గిపుల్లలను వెలిగించవద్దు', content: 'అగ్గిపుల్లలు, కొవ్వొత్తులు లేదా మంటలను ఉపయోగించవద్దు. భూకంపం తర్వాత గ్యాస్ లీకులు ఉండవచ్చు।' },
+            bn: { title: 'ম্যাচ জ্বালাবেন না', content: 'ম্যাচ, মোমবাতি বা আগুন ব্যবহার করবেন না। ভূমিকম্পের পরে গ্যাস লিক থাকতে পারে।' },
+            kn: { title: 'ಬೆಂಕಿಕಡ್ಡಿಗಳನ್ನು ಹೊತ್ತಿಸಬೇಡಿ', content: 'ಬೆಂಕಿಕಡ್ಡಿಗಳು, ಮೇಣದಬತ್ತಿಗಳು ಅಥವಾ ಜ್ವಾಲೆಗಳನ್ನು ಬಳಸಬೇಡಿ. ಭೂಕಂಪದ ನಂತರ ಅನಿಲ ಸೋರಿಕೆ ಇರಬಹುದು।' },
+          }
         },
       ],
     },
     {
       disaster: DisasterType.FIRE,
       label: 'Fire Safety',
+      translations: {
+        hi: 'आग सुरक्षा',
+        ta: 'தீ பாதுகாப்பு',
+        te: 'అగ్ని భద్రత',
+        bn: 'অগ্নি নিরাপত্তা',
+        kn: 'ಅಗ್ನಿ ಸುರಕ್ಷತೆ',
+      },
       icon: 'flame',
       color: '#FF6B35',
       tips: [
-        {
-          id: '1',
-          title: 'Stay Low and Go',
-          content: 'Crawl low under smoke to your exit. Smoke rises, cleaner air is near the floor.',
-          type: 'do',
+        { id: '1', title: 'Stay Low and Go', content: 'Crawl low under smoke to exit. Smoke rises, cleaner air near floor.', type: 'do',
+          translations: {
+            hi: { title: 'नीचे रहें और जाएं', content: 'धुएं के नीचे रेंगते हुए बाहर निकलें। धुआं ऊपर उठता है, फर्श के पास साफ हवा होती है।' },
+            ta: { title: 'தாழ்வாக இருந்து செல்லுங்கள்', content: 'வெளியேற புகைக்கு கீழ் ஊர்ந்து செல்லுங்கள். புகை மேலே எழும், தரைக்கு அருகில் தூய்மையான காற்று।' },
+            te: { title: 'తక్కువగా ఉండండి మరియు వెళ్లండి', content: 'నిష్క్రమించడానికి పొగ కింద పాకండి. పొగ పైకి లేస్తుంది, నేల దగ్గర స్వచ్ఛమైన గాలి।' },
+            bn: { title: 'নিচু হয়ে যান', content: 'বের হতে ধোঁয়ার নিচে হামাগুড়ি দিন। ধোঁয়া উপরে ওঠে, মেঝের কাছে পরিষ্কার বাতাস।' },
+            kn: { title: 'ಕೆಳಗೆ ಇರಿ ಮತ್ತು ಹೋಗಿ', content: 'ಹೊರಬರಲು ಹೊಗೆಯ ಕೆಳಗೆ ತೆವಳಿರಿ. ಹೊಗೆ ಮೇಲೆ ಏರುತ್ತದೆ, ನೆಲದ ಹತ್ತಿರ ಶುದ್ಧ ಗಾಳಿ।' },
+          }
         },
-        {
-          id: '2',
-          title: 'Don\'t Use Elevators',
-          content: 'Never use elevators during a fire emergency. Use stairs only.',
-          type: 'dont',
+        { id: '2', title: 'Test Doors Before Opening', content: 'Feel door with back of hand. If hot, don\'t open - fire is on other side.', type: 'do',
+          translations: {
+            hi: { title: 'खोलने से पहले दरवाजे की जांच करें', content: 'हाथ की पिछली तरफ से दरवाजा छूएं। अगर गर्म है तो न खोलें - दूसरी तरफ आग है।' },
+            ta: { title: 'திறப்பதற்கு முன் கதவுகளை சோதிக்கவும்', content: 'கையின் பின்புறத்தால் கதவை தொடுங்கள். சூடாக இருந்தால் திறக்காதீர்கள் - மறுபுறம் தீ உள்ளது।' },
+            te: { title: 'తెరవడానికి ముందు తలుపులను పరీక్షించండి', content: 'చేతి వెనుక భాగంతో తలుపును తాకండి. వేడిగా ఉంటే తెరవకండి - మరో వైపు మంట ఉంది।' },
+            bn: { title: 'খোলার আগে দরজা পরীক্ষা করুন', content: 'হাতের পিছনে দিয়ে দরজা স্পর্শ করুন। গরম হলে খুলবেন না - অন্য পাশে আগুন আছে।' },
+            kn: { title: 'ತೆರೆಯುವ ಮೊದಲು ಬಾಗಿಲುಗಳನ್ನು ಪರೀಕ್ಷಿಸಿ', content: 'ಕೈಯ ಹಿಂಭಾಗದಿಂದ ಬಾಗಿಲನ್ನು ಮುಟ್ಟಿ. ಬಿಸಿಯಾಗಿದ್ದರೆ ತೆರೆಯಬೇಡಿ - ಇನ್ನೊಂದು ಬದಿಯಲ್ಲಿ ಬೆಂಕಿ ಇದೆ।' },
+          }
         },
-        {
-          id: '3',
-          title: 'Test Doors Before Opening',
-          content: 'Feel doors with the back of your hand before opening.',
-          type: 'do',
+        { id: '3', title: 'Close Doors Behind You', content: 'Close doors as you escape to slow spread of fire and smoke.', type: 'do',
+          translations: {
+            hi: { title: 'अपने पीछे दरवाजे बंद करें', content: 'आग और धुएं के फैलाव को धीमा करने के लिए भागते समय दरवाजे बंद करें।' },
+            ta: { title: 'உங்கள் பின்னால் கதவுகளை மூடுங்கள்', content: 'தீ மற்றும் புகை பரவுவதை மெதுவாக்க தப்பிக்கும்போது கதவுகளை மூடுங்கள்।' },
+            te: { title: 'మీ వెనుక తలుపులు మూసేయండి', content: 'మంట మరియు పొగ వ్యాప్తిని నెమ్మదించడానికి తప్పించుకునేటప్పుడు తలుపులు మూసేయండి।' },
+            bn: { title: 'আপনার পিছনে দরজা বন্ধ করুন', content: 'আগুন এবং ধোঁয়া ছড়িয়ে পড়া ধীর করতে পালানোর সময় দরজা বন্ধ করুন।' },
+            kn: { title: 'ನಿಮ್ಮ ಹಿಂದೆ ಬಾಗಿಲುಗಳನ್ನು ಮುಚ್ಚಿ', content: 'ಬೆಂಕಿ ಮತ್ತು ಹೊಗೆ ಹರಡುವಿಕೆಯನ್ನು ನಿಧಾನಗೊಳಿಸಲು ತಪ್ಪಿಸಿಕೊಳ್ಳುವಾಗ ಬಾಗಿಲುಗಳನ್ನು ಮುಚ್ಚಿ।' },
+          }
         },
-        {
-          id: '4',
-          title: 'Don\'t Hide',
-          content: 'Don\'t hide under beds or in closets. Firefighters need to find you.',
-          type: 'dont',
+        { id: '4', title: 'Call 101 from Outside', content: 'Once outside, call fire department 101. Never go back inside burning building.', type: 'do',
+          translations: {
+            hi: { title: 'बाहर से 101 पर कॉल करें', content: 'बाहर आने के बाद अग्निशमन विभाग 101 पर कॉल करें। जलती इमारत में कभी वापस न जाएं।' },
+            ta: { title: 'வெளியே இருந்து 101 அழைக்கவும்', content: 'வெளியே வந்தவுடன், தீயணைப்பு துறை 101 ஐ அழைக்கவும். எரியும் கட்டிடத்திற்குள் மீண்டும் செல்லாதீர்கள்।' },
+            te: { title: 'బయట నుండి 101కి కాల్ చేయండి', content: 'బయటకు వచ్చిన తర్వాత, అగ్నిమాపక విభాగం 101కి కాల్ చేయండి. మండుతున్న భవనంలోకి తిరిగి వెళ్లవద్దు।' },
+            bn: { title: 'বাইরে থেকে 101 কল করুন', content: 'একবার বাইরে, দমকল বিভাগ 101 কল করুন। জ্বলন্ত ভবনে আবার প্রবেশ করবেন না।' },
+            kn: { title: 'ಹೊರಗಿನಿಂದ 101 ಗೆ ಕರೆ ಮಾಡಿ', content: 'ಹೊರಗೆ ಬಂದ ನಂತರ, ಅಗ್ನಿಶಾಮಕ ಇಲಾಖೆ 101 ಗೆ ಕರೆ ಮಾಡಿ. ಉರಿಯುತ್ತಿರುವ ಕಟ್ಟಡದೊಳಗೆ ಹಿಂತಿರುಗಬೇಡಿ।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Use Elevators', content: 'Never use elevators during fire. They can stop between floors or open to fire.', type: 'dont',
+          translations: {
+            hi: { title: 'लिफ्ट का उपयोग न करें', content: 'आग के दौरान कभी भी लिफ्ट का उपयोग न करें। वे मंजिलों के बीच रुक सकती हैं या आग में खुल सकती हैं।' },
+            ta: { title: 'லிஃப்ட்களைப் பயன்படுத்தாதீர்கள்', content: 'தீயின் போது ஒருபோதும் லிஃப்ட்களைப் பயன்படுத்தாதீர்கள். அவை தளங்களுக்கு இடையில் நிற்கலாம் அல்லது தீக்கு திறக்கலாம்।' },
+            te: { title: 'ఎలివేటర్లను ఉపయోగించవద్దు', content: 'అగ్ని సమయంలో ఎలివేటర్లను ఎప్పుడూ ఉపయోగించవద్దు. అవి అంతస్తుల మధ్య ఆగిపోవచ్చు లేదా మంటకు తెరుచుకోవచ్చు।' },
+            bn: { title: 'লিফট ব্যবহার করবেন না', content: 'আগুনের সময় কখনই লিফট ব্যবহার করবেন না। তারা তলাগুলির মধ্যে থামতে পারে বা আগুনে খুলতে পারে।' },
+            kn: { title: 'ಎಲಿವೇಟರ್‌ಗಳನ್ನು ಬಳಸಬೇಡಿ', content: 'ಬೆಂಕಿಯ ಸಮಯದಲ್ಲಿ ಎಂದಿಗೂ ಎಲಿವೇಟರ್‌ಗಳನ್ನು ಬಳಸಬೇಡಿ. ಅವು ಮಹಡಿಗಳ ನಡುವೆ ನಿಲ್ಲಬಹುದು ಅಥವಾ ಬೆಂಕಿಗೆ ತೆರೆದುಕೊಳ್ಳಬಹುದು।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Hide', content: 'Don\'t hide under beds or in closets. Firefighters need to find you quickly.', type: 'dont',
+          translations: {
+            hi: { title: 'छिपें नहीं', content: 'बिस्तर के नीचे या अलमारी में न छिपें। अग्निशामकों को आपको जल्दी खोजने की जरूरत है।' },
+            ta: { title: 'ஒளிந்துகொள்ளாதீர்கள்', content: 'படுக்கைகளுக்கு அடியில் அல்லது அலமாரிகளில் ஒளிந்துகொள்ளாதீர்கள். தீயணைப்பு வீரர்கள் உங்களை விரைவாக கண்டுபிடிக்க வேண்டும்।' },
+            te: { title: 'దాక్కోకండి', content: 'మంచాల క్రింద లేదా అల్మారాల్లో దాక్కోకండి. అగ్నిమాపక సిబ్బంది మిమ్మల్ని త్వరగా కనుగొనాలి।' },
+            bn: { title: 'লুকাবেন না', content: 'বিছানার নিচে বা আলমারিতে লুকাবেন না। দমকলকর্মীদের আপনাকে দ্রুত খুঁজে পেতে হবে।' },
+            kn: { title: 'ಅಡಗಿಕೊಳ್ಳಬೇಡಿ', content: 'ಹಾಸಿಗೆಗಳ ಕೆಳಗೆ ಅಥವಾ ಬಟ್ಟೆ ಗೋಡೆಗಳಲ್ಲಿ ಅಡಗಿಕೊಳ್ಳಬೇಡಿ. ಅಗ್ನಿಶಾಮಕ ಸಿಬ್ಬಂದಿ ನಿಮ್ಮನ್ನು ತ್ವರಿತವಾಗಿ ಹುಡುಕಬೇಕಾಗಿದೆ।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Fight Large Fires', content: 'Don\'t try to fight large fires yourself. Evacuate immediately and call professionals.', type: 'dont',
+          translations: {
+            hi: { title: 'बड़ी आग से न लड़ें', content: 'बड़ी आग से खुद लड़ने की कोशिश न करें। तुरंत निकल जाएं और पेशेवरों को बुलाएं।' },
+            ta: { title: 'பெரிய தீயுடன் போராட வேண்டாம்', content: 'பெரிய தீயுடன் நீங்களே போராட முயற்சிக்காதீர்கள். உடனடியாக வெளியேறி நிபுணர்களை அழைக்கவும்।' },
+            te: { title: 'పెద్ద మంటలతో పోరాడవద్దు', content: 'పెద్ద మంటలతో మీరే పోరాడటానికి ప్రయత్నించవద్దు. వెంటనే ఖాళీ చేయండి మరియు నిపుణులను పిలవండి।' },
+            bn: { title: 'বড় আগুনের সাথে লড়াই করবেন না', content: 'বড় আগুনের সাথে নিজে লড়াই করার চেষ্টা করবেন না। অবিলম্বে সরিয়ে নিন এবং পেশাদারদের কল করুন।' },
+            kn: { title: 'ದೊಡ್ಡ ಬೆಂಕಿಯೊಂದಿಗೆ ಹೋರಾಡಬೇಡಿ', content: 'ದೊಡ್ಡ ಬೆಂಕಿಯೊಂದಿಗೆ ನೀವೇ ಹೋರಾಡಲು ಪ್ರಯತ್ನಿಸಬೇಡಿ. ತಕ್ಷಣ ಖಾಲಿ ಮಾಡಿ ಮತ್ತು ವೃತ್ತಿಪರರನ್ನು ಕರೆಯಿರಿ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Open Hot Doors', content: 'Don\'t open doors if they feel hot. Fire and smoke will rush in instantly.', type: 'dont',
+          translations: {
+            hi: { title: 'गर्म दरवाजे न खोलें', content: 'अगर दरवाजे गर्म महसूस हों तो उन्हें न खोलें। आग और धुआं तुरंत अंदर घुस जाएगा।' },
+            ta: { title: 'சூடான கதவுகளைத் திறக்காதீர்கள்', content: 'கதவுகள் சூடாக உணர்ந்தால் திறக்காதீர்கள். தீ மற்றும் புகை உடனடியாக உள்ளே வந்துவிடும்।' },
+            te: { title: 'వేడి తలుపులు తెరవకండి', content: 'తలుపులు వేడిగా అనిపిస్తే తెరవకండి. మంట మరియు పొగ వెంటనే లోపలికి వస్తాయి।' },
+            bn: { title: 'গরম দরজা খুলবেন না', content: 'দরজা গরম মনে হলে খুলবেন না। আগুন এবং ধোঁয়া তাৎক্ষণিকভাবে ভিতরে ঢুকবে।' },
+            kn: { title: 'ಬಿಸಿ ಬಾಗಿಲುಗಳನ್ನು ತೆರೆಯಬೇಡಿ', content: 'ಬಾಗಿಲುಗಳು ಬಿಸಿಯಾಗಿ ಅನಿಸಿದರೆ ತೆರೆಯಬೇಡಿ. ಬೆಂಕಿ ಮತ್ತು ಹೊಗೆ ತಕ್ಷಣ ಒಳಗೆ ನುಗ್ಗುತ್ತದೆ।' },
+          }
         },
       ],
     },
     {
-      disaster: DisasterType.ROAD_ACCIDENT,
-      label: 'Road Accident Safety',
-      icon: 'car',
-      color: '#FF3B30',
+      disaster: DisasterType.WOMEN_SAFETY,
+      label: 'Women Safety',
+      translations: {
+        hi: 'महिला सुरक्षा',
+        ta: 'பெண்கள் பாதுகாப்பு',
+        te: 'మహిళా భద్రత',
+        bn: 'মহিলা নিরাপত্তা',
+        kn: 'ಮಹಿಳಾ ಸುರಕ್ಷತೆ',
+      },
+      icon: 'shield',
+      color: '#FF2D92',
       tips: [
-        {
-          id: '1',
-          title: 'Move to Safety',
-          content: 'If possible, move your vehicle out of traffic and turn on hazard lights.',
-          type: 'do',
+        { id: '1', title: 'Share Your Location', content: 'Share live location with trusted contacts when traveling alone, especially at night.', type: 'do',
+          translations: {
+            hi: { title: 'अपना स्थान साझा करें', content: 'अकेले यात्रा करते समय विशेष रूप से रात में विश्वसनीय संपर्कों के साथ लाइव स्थान साझा करें।' },
+            ta: { title: 'உங்கள் இருப்பிடத்தைப் பகிரவும்', content: 'தனியாக பயணிக்கும்போது, குறிப்பாக இரவில் நம்பகமான தொடர்புகளுடன் நேரடி இருப்பிடத்தைப் பகிரவும்।' },
+            te: { title: 'మీ స్థానాన్ని భాగస్వామ్యం చేయండి', content: 'ఒంటరిగా ప్రయాణిస్తున్నప్పుడు, ముఖ్యంగా రాత్రి సమయంలో విశ్వసనీయ పరిచయాలతో ప్రత్యక్ష స్థానాన్ని భాగస్వామ్యం చేయండి।' },
+            bn: { title: 'আপনার অবস্থান শেয়ার করুন', content: 'একা ভ্রমণ করার সময়, বিশেষ করে রাতে বিশ্বস্ত পরিচিতদের সাথে লাইভ অবস্থান শেয়ার করুন।' },
+            kn: { title: 'ನಿಮ್ಮ ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳಿ', content: 'ಏಕಾಂಗಿಯಾಗಿ ಪ್ರಯಾಣಿಸುವಾಗ, ವಿಶೇಷವಾಗಿ ರಾತ್ರಿಯಲ್ಲಿ ವಿಶ್ವಾಸಾರ್ಹ ಸಂಪರ್ಕಗಳೊಂದಿಗೆ ನೇರ ಸ್ಥಳವನ್ನು ಹಂಚಿಕೊಳ್ಳಿ।' },
+          }
         },
-        {
-          id: '2',
-          title: 'Don\'t Leave the Scene',
-          content: 'Never leave the scene of an accident, even if it\'s minor.',
-          type: 'dont',
+        { id: '2', title: 'Trust Your Instincts', content: 'If situation feels uncomfortable or unsafe, trust instincts and leave immediately.', type: 'do',
+          translations: {
+            hi: { title: 'अपनी सहजबुद्धि पर भरोसा करें', content: 'यदि स्थिति असहज या असुरक्षित लगे, तो सहजबुद्धि पर भरोसा करें और तुरंत चले जाएं।' },
+            ta: { title: 'உங்கள் உள்ளுணர்வை நம்புங்கள்', content: 'சூழ்நிலை अस편மாக அல்லது பாதுகாப்பற்றதாக உணர்ந்தால், உள்ளுணர்வை நம்பி உடனடியாக வெளியேறவும்।' },
+            te: { title: 'మీ స్వభావాన్ని నమ్మండి', content: 'పరిస్థితి అసౌకర్యంగా లేదా అసురక్షితంగా అనిపిస్తే, స్వభావాన్ని నమ్మండి మరియు వెంటనే వెళ్లిపోండి।' },
+            bn: { title: 'আপনার সহজাত বুদ্ধি বিশ্বাস করুন', content: 'পরিস্থিতি অস্বস্তিকর বা অনিরাপদ মনে হলে, সহজাত বুদ্ধি বিশ্বাস করুন এবং অবিলম্বে চলে যান।' },
+            kn: { title: 'ನಿಮ್ಮ ಸಹಜಬುದ್ಧಿಯನ್ನು ನಂಬಿರಿ', content: 'ಪರಿಸ್ಥಿತಿ ಅಸ್ವಸ್ಥತೆ ಅಥವಾ ಅಸುರಕ್ಷಿತವಾಗಿ ಅನಿಸಿದರೆ, ಸಹಜಬುದ್ಧಿಯನ್ನು ನಂಬಿ ತಕ್ಷಣ ಹೊರಡಿರಿ।' },
+          }
         },
-        {
-          id: '3',
-          title: 'Call Emergency Services',
-          content: 'Call 108 for ambulance or 100 for police immediately.',
-          type: 'do',
+        { id: '3', title: 'Keep Emergency Numbers Ready', content: 'Save 1091 (Women Helpline), 100 (Police) on speed dial. Know local police station.', type: 'do',
+          translations: {
+            hi: { title: 'आपातकालीन नंबर तैयार रखें', content: '1091 (महिला हेल्पलाइन), 100 (पुलिस) को स्पीड डायल पर सेव करें। स्थानीय पुलिस स्टेशन जानें।' },
+            ta: { title: 'அவசர எண்களை தயாராக வைத்திருங்கள்', content: '1091 (பெண்கள் ஹெல்ப்லைன்), 100 (காவல்துறை) ஐ வேக டயலில் சேமிக்கவும். உள்ளூர் காவல் நிலையத்தை அறிந்து கொள்ளுங்கள்।' },
+            te: { title: 'అత్యవసర సంఖ్యలను సిద్ధంగా ఉంచండి', content: '1091 (మహిళా హెల్ప్‌లైన్), 100 (పోలీసు)ను స్పీడ్ డయల్‌లో సేవ్ చేయండి. స్థానిక పోలీసు స్టేషన్ తెలుసుకోండి।' },
+            bn: { title: 'জরুরি নম্বর প্রস্তুত রাখুন', content: '1091 (মহিলা হেল্পলাইন), 100 (পুলিশ) স্পিড ডায়ালে সংরক্ষণ করুন। স্থানীয় থানা জানুন।' },
+            kn: { title: 'ತುರ್ತು ಸಂಖ್ಯೆಗಳನ್ನು ಸಿದ್ಧವಾಗಿರಿಸಿ', content: '1091 (ಮಹಿಳಾ ಸಹಾಯವಾಣಿ), 100 (ಪೊಲೀಸ್) ಅನ್ನು ಸ್ಪೀಡ್ ಡಯಲ್‌ನಲ್ಲಿ ಉಳಿಸಿ. ಸ್ಥಳೀಯ ಪೊಲೀಸ್ ಠಾಣೆಯನ್ನು ತಿಳಿದುಕೊಳ್ಳಿ।' },
+          }
         },
-        {
-          id: '4',
-          title: 'Don\'t Move Injured People',
-          content: 'Don\'t move seriously injured people unless they\'re in immediate danger.',
-          type: 'dont',
+        { id: '4', title: 'Stay in Well-Lit Areas', content: 'Walk in well-lit, populated areas. Avoid shortcuts through isolated areas.', type: 'do',
+          translations: {
+            hi: { title: 'अच्छी रोशनी वाले क्षेत्रों में रहें', content: 'अच्छी रोशनी वाले, आबादी वाले क्षेत्रों में चलें। अलग-थलग क्षेत्रों से शॉर्टकट से बचें।' },
+            ta: { title: 'நன்கு வெளிச்சமுள்ள பகுதிகளில் இருங்கள்', content: 'நன்கு வெளிச்சமுள்ள, மக்கள் நெரிசலான பகுதிகளில் நடக்கவும். தனிமையான பகுதிகள் வழியாக குறுக்கு வழிகளைத் தவிர்க்கவும்।' },
+            te: { title: 'బాగా వెలుతురు ఉన్న ప్రాంతాల్లో ఉండండి', content: 'బాగా వెలుతురు ఉన్న, జనాభా ఉన్న ప్రాంతాల్లో నడవండి. ఒంటరి ప్రాంతాల ద్వారా షార్ట్‌కట్‌లను నివారించండి।' },
+            bn: { title: 'ভালো আলোকিত এলাকায় থাকুন', content: 'ভালো আলোকিত, জনবহুল এলাকায় হাঁটুন। বিচ্ছিন্ন এলাকার মধ্য দিয়ে শর্টকাট এড়িয়ে চলুন।' },
+            kn: { title: 'ಚೆನ್ನಾಗಿ ಬೆಳಕಿರುವ ಪ್ರದೇಶಗಳಲ್ಲಿ ಇರಿ', content: 'ಚೆನ್ನಾಗಿ ಬೆಳಕಿರುವ, ಜನದಟ್ಟಣೆ ಇರುವ ಪ್ರದೇಶಗಳಲ್ಲಿ ನಡೆಯಿರಿ. ಪ್ರತ್ಯೇಕ ಪ್ರದೇಶಗಳ ಮೂಲಕ ಶಾರ್ಟ್‌ಕಟ್‌ಗಳನ್ನು ತಪ್ಪಿಸಿ।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Share Personal Details', content: 'Don\'t share personal information like address, phone with strangers or on social media.', type: 'dont',
+          translations: {
+            hi: { title: 'व्यक्तिगत विवरण साझा न करें', content: 'अजनबियों या सोशल मीडिया पर पता, फोन जैसी व्यक्तिगत जानकारी साझा न करें।' },
+            ta: { title: 'தனிப்பட்ட விவரங்களைப் பகிராதீர்கள்', content: 'அந்நியர்களுடன் அல்லது சமூக ஊடகங்களில் முகவரி, தொலைபேசி போன்ற தனிப்பட்ட தகவல்களைப் பகிராதீர்கள்।' },
+            te: { title: 'వ్యక్తిగత వివరాలను భాగస్వామ్యం చేయవద్దు', content: 'అపరిచితులతో లేదా సోషల్ మీడియాలో చిరునామా, ఫోన్ వంటి వ్యక్తిగత సమాచారాన్ని భాగస్వామ్యం చేయవద్దు।' },
+            bn: { title: 'ব্যক্তিগত বিবরণ শেয়ার করবেন না', content: 'অপরিচিতদের সাথে বা সোশ্যাল মিডিয়ায় ঠিকানা, ফোনের মতো ব্যক্তিগত তথ্য শেয়ার করবেন না।' },
+            kn: { title: 'ವೈಯಕ್ತಿಕ ವಿವರಗಳನ್ನು ಹಂಚಿಕೊಳ್ಳಬೇಡಿ', content: 'ಅಪರಿಚಿತರೊಂದಿಗೆ ಅಥವಾ ಸಾಮಾಜಿಕ ಮಾಧ್ಯಮದಲ್ಲಿ ವಿಳಾಸ, ಫೋನ್‌ನಂತಹ ವೈಯಕ್ತಿಕ ಮಾಹಿತಿಯನ್ನು ಹಂಚಿಕೊಳ್ಳಬೇಡಿ।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Accept Drinks from Strangers', content: 'Don\'t accept food or drinks from unknown people. Watch your drink at all times.', type: 'dont',
+          translations: {
+            hi: { title: 'अजनबियों से पेय स्वीकार न करें', content: 'अज्ञात लोगों से खाना या पेय स्वीकार न करें। हर समय अपने पेय पर नजर रखें।' },
+            ta: { title: 'அந்நியர்களிடமிருந்து பானங்களை ஏற்காதீர்கள்', content: 'அறியப்படாத நபர்களிடமிருந்து உணவு அல்லது பானங்களை ஏற்காதீர்கள். எல்லா நேரங்களிலும் உங்கள் பானத்தைக் கவனியுங்கள்।' },
+            te: { title: 'అపరిచితుల నుండి పానీయాలను అంగీకరించవద్దు', content: 'తెలియని వ్యక్తుల నుండి ఆహారం లేదా పానీయాలను అంగీకరించవద్దు. అన్ని సమయాలలో మీ పానీయాన్ని గమనించండి।' },
+            bn: { title: 'অপরিচিতদের কাছ থেকে পানীয় গ্রহণ করবেন না', content: 'অজানা লোকদের কাছ থেকে খাবার বা পানীয় গ্রহণ করবেন না। সব সময় আপনার পানীয় দেখুন।' },
+            kn: { title: 'ಅಪರಿಚಿತರಿಂದ ಪಾನೀಯಗಳನ್ನು ಸ್ವೀಕರಿಸಬೇಡಿ', content: 'ಅಜ್ಞಾತ ಜನರಿಂದ ಆಹಾರ ಅಥವಾ ಪಾನೀಯಗಳನ್ನು ಸ್ವೀಕರಿಸಬೇಡಿ. ಎಲ್ಲಾ ಸಮಯದಲ್ಲೂ ನಿಮ್ಮ ಪಾನೀಯವನ್ನು ಗಮನಿಸಿ।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Wear Headphones', content: 'Don\'t wear headphones while walking alone. Stay alert to surroundings.', type: 'dont',
+          translations: {
+            hi: { title: 'हेडफोन न पहनें', content: 'अकेले चलते समय हेडफोन न पहनें। आसपास के प्रति सतर्क रहें।' },
+            ta: { title: 'ஹெட்ஃபோன்களை அணியாதீர்கள்', content: 'தனியாக நடக்கும்போது ஹெட்ஃபோன்களை அணியாதீர்கள். சுற்றுப்புறங்களில் எச்சரிக்கையாக இருங்கள்।' },
+            te: { title: 'హెడ్‌ఫోన్లు ధరించవద్దు', content: 'ఒంటరిగా నడుస్తున్నప్పుడు హెడ్‌ఫోన్లు ధరించవద్దు. పరిసరాల పట్ల అప్రమత్తంగా ఉండండి।' },
+            bn: { title: 'হেডফোন পরবেন না', content: 'একা হাঁটার সময় হেডফোন পরবেন না। পরিবেশের প্রতি সতর্ক থাকুন।' },
+            kn: { title: 'ಹೆಡ್‌ಫೋನ್‌ಗಳನ್ನು ಧರಿಸಬೇಡಿ', content: 'ಏಕಾಂಗಿಯಾಗಿ ನಡೆಯುವಾಗ ಹೆಡ್‌ಫೋನ್‌ಗಳನ್ನು ಧರಿಸಬೇಡಿ. ಸುತ್ತಮುತ್ತಲ ಎಚ್ಚರದಿಂದಿರಿ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Ignore Your Safety', content: 'Don\'t prioritize politeness over safety. Say no firmly if uncomfortable.', type: 'dont',
+          translations: {
+            hi: { title: 'अपनी सुरक्षा को नजरअंदाज न करें', content: 'सुरक्षा पर शिष्टाचार को प्राथमिकता न दें। असहज होने पर दृढ़ता से ना कहें।' },
+            ta: { title: 'உங்கள் பாதுகாப்பைப் புறக்கணிக்காதீர்கள்', content: 'பாதுகாப்பை விட கண்ணியத்திற்கு முன்னுரிமை அளிக்காதீர்கள். असुविधा होने पर दृढ़ता से ना कहें।' },
+            te: { title: 'మీ భద్రతను విస్మరించవద్దు', content: 'భద్రతపై మర్యాదకు ప్రాధాన్యత ఇవ్వవద్దు. అసౌకర్యంగా ఉంటే దృఢంగా నో చెప్పండి।' },
+            bn: { title: 'আপনার নিরাপত্তা উপেক্ষা করবেন না', content: 'নিরাপত্তার চেয়ে ভদ্রতাকে অগ্রাধিকার দেবেন না। অস্বস্তিকর হলে দৃঢ়ভাবে না বলুন।' },
+            kn: { title: 'ನಿಮ್ಮ ಸುರಕ್ಷತೆಯನ್ನು ನಿರ್ಲಕ್ಷಿಸಬೇಡಿ', content: 'ಸುರಕ್ಷತೆಗಿಂತ ಸೌಜನ್ಯಕ್ಕೆ ಆದ್ಯತೆ ನೀಡಬೇಡಿ. ಅಸ್ವಸ್ಥತೆಯಾದರೆ ದೃಢವಾಗಿ ಇಲ್ಲ ಎಂದು ಹೇಳಿ।' },
+          }
         },
       ],
     },
     {
       disaster: DisasterType.CYCLONE,
       label: 'Cyclone Safety',
+      translations: {
+        hi: 'चक्रवात सुरक्षा',
+        ta: 'சூறாவளி பாதுகாப்பு',
+        te: 'తుఫాను భద్రత',
+        bn: 'ঘূর্ণিঝড় নিরাপত্তা',
+        kn: 'ಚಂಡಮಾರುತ ಸುರಕ್ಷತೆ',
+      },
       icon: 'refresh',
       color: '#5856D6',
       tips: [
-        {
-          id: '1',
-          title: 'Evacuate if Advised',
-          content: 'Follow evacuation orders from authorities immediately.',
-          type: 'do',
+        { id: '1', title: 'Evacuate if Advised', content: 'Follow evacuation orders immediately. Authorities issue warnings to save lives.', type: 'do',
+          translations: {
+            hi: { title: 'सलाह दी जाए तो निकल जाएं', content: 'तुरंत निकासी आदेशों का पालन करें। अधिकारी जीवन बचाने के लिए चेतावनी जारी करते हैं।' },
+            ta: { title: 'அறிவுறுத்தப்பட்டால் வெளியேறுங்கள்', content: 'வெளியேற்ற உத்தரவுகளை உடனடியாக பின்பற்றவும். அதிகாரிகள் உயிர்களை காப்பாற்ற எச்சரிக்கைகளை வெளியிடுகின்றனர்।' },
+            te: { title: 'సలహా ఇస్తే ఖాళీ చేయండి', content: 'వెంటనే తరలింపు ఆదేశాలను అనుసరించండి. అధికారులు ప్రాణాలను రక్షించడానికి హెచ్చరికలు జారీ చేస్తారు।' },
+            bn: { title: 'পরামর্শ দিলে সরিয়ে নিন', content: 'অবিলম্বে সরিয়ে নেওয়ার আদেশ অনুসরণ করুন। কর্তৃপক্ষ জীবন বাঁচাতে সতর্কতা জারি করে।' },
+            kn: { title: 'ಸಲಹೆ ನೀಡಿದರೆ ಖಾಲಿ ಮಾಡಿ', content: 'ತಕ್ಷಣ ಸ್ಥಳಾಂತರ ಆದೇಶಗಳನ್ನು ಅನುಸರಿಸಿ. ಅಧಿಕಾರಿಗಳು ಜೀವಗಳನ್ನು ಉಳಿಸಲು ಎಚ್ಚರಿಕೆಗಳನ್ನು ನೀಡುತ್ತಾರೆ।' },
+          }
         },
-        {
-          id: '2',
-          title: 'Don\'t Go Outside',
-          content: 'Don\'t go outside during the eye of the storm. The other side is coming.',
-          type: 'dont',
+        { id: '2', title: 'Secure Your Home', content: 'Board windows, bring outdoor furniture inside, secure loose objects that can fly.', type: 'do',
+          translations: {
+            hi: { title: 'अपने घर को सुरक्षित करें', content: 'खिड़कियों पर बोर्ड लगाएं, बाहर का फर्नीचर अंदर लाएं, उड़ सकने वाली वस्तुओं को सुरक्षित करें।' },
+            ta: { title: 'உங்கள் வீட்டை பாதுகாக்கவும்', content: 'ஜன்னல்களை அடைக்கவும், வெளிப்புற மரச்சாமான்களை உள்ளே கொண்டு வாருங்கள், பறக்கக்கூடிய தளர்வான பொருட்களைப் பாதுகாக்கவும்।' },
+            te: { title: 'మీ ఇంటిని సురక్షితం చేయండి', content: 'కిటికీలకు బోర్డులు వేయండి, బయటి ఫర్నిచర్‌ను లోపలికి తీసుకురండి, ఎగరగల వదులుగా ఉన్న వస్తువులను సురక్షితం చేయండి।' },
+            bn: { title: 'আপনার বাড়ি সুরক্ষিত করুন', content: 'জানালায় বোর্ড লাগান, বাইরের আসবাবপত্র ভিতরে আনুন, উড়তে পারে এমন আলগা বস্তু সুরক্ষিত করুন।' },
+            kn: { title: 'ನಿಮ್ಮ ಮನೆಯನ್ನು ಭದ್ರಪಡಿಸಿಕೊಳ್ಳಿ', content: 'ಕಿಟಕಿಗಳಿಗೆ ಬೋರ್ಡ್ ಹಾಕಿ, ಹೊರಾಂಗಣ ಪೀಠೋಪಕರಣಗಳನ್ನು ಒಳಗೆ ತನ್ನಿ, ಹಾರಬಹುದಾದ ಸಡಿಲವಾದ ವಸ್ತುಗಳನ್ನು ಭದ್ರಪಡಿಸಿ।' },
+          }
         },
-        {
-          id: '3',
-          title: 'Secure Your Home',
-          content: 'Board up windows and secure outdoor furniture.',
-          type: 'do',
+        { id: '3', title: 'Stay in Strong Room', content: 'Stay in interior room away from windows. Bathroom or closet often safest.', type: 'do',
+          translations: {
+            hi: { title: 'मजबूत कमरे में रहें', content: 'खिड़कियों से दूर अंदरूनी कमरे में रहें। बाथरूम या अलमारी अक्सर सबसे सुरक्षित होती है।' },
+            ta: { title: 'வலுவான அறையில் இருங்கள்', content: 'ஜன்னல்களிலிருந்து விலகி உள்ளறையில் இருங்கள். குளியலறை அல்லது அலமாரி பெரும்பாலும் பாதுகாப்பானது।' },
+            te: { title: 'బలమైన గదిలో ఉండండి', content: 'కిటికీల నుండి దూరంగా లోపలి గదిలో ఉండండి. బాత్రూమ్ లేదా క్లోసెట్ తరచుగా సురక్షితం।' },
+            bn: { title: 'শক্তিশালী ঘরে থাকুন', content: 'জানালা থেকে দূরে অভ্যন্তরীণ ঘরে থাকুন। বাথরুম বা আলমারি প্রায়ই সবচেয়ে নিরাপদ।' },
+            kn: { title: 'ಬಲವಾದ ಕೊಠಡಿಯಲ್ಲಿ ಇರಿ', content: 'ಕಿಟಕಿಗಳಿಂದ ದೂರ ಒಳಗಿನ ಕೊಠಡಿಯಲ್ಲಿ ಇರಿ. ಸ್ನಾನಗೃಹ ಅಥವಾ ಕ್ಲೋಸೆಟ್ ಸಾಮಾನ್ಯವಾಗಿ ಸುರಕ್ಷಿತ।' },
+          }
         },
-        {
-          id: '4',
-          title: 'Don\'t Use Candles',
-          content: 'Avoid candles during power outages. Use flashlights instead.',
-          type: 'dont',
+        { id: '4', title: 'Stock Emergency Supplies', content: 'Keep 3 days food, water, medicines, flashlight, battery radio, first aid kit ready.', type: 'do',
+          translations: {
+            hi: { title: 'आपातकालीन सामग्री स्टॉक करें', content: '3 दिन का भोजन, पानी, दवाएं, टॉर्च, बैटरी रेडियो, प्राथमिक चिकित्सा किट तैयार रखें।' },
+            ta: { title: 'அவசர பொருட்களை சேமிக்கவும்', content: '3 நாட்கள் உணவு, தண்ணீர், மருந்துகள், மின்விளக்கு, பேட்டரி ரேடியோ, முதலுதவி பெட்டியை தயாராக வைத்திருங்கள்।' },
+            te: { title: 'అత్యవసర సామాగ్రిని నిల్వ చేయండి', content: '3 రోజుల ఆహారం, నీరు, మందులు, ఫ్లాష్‌లైట్, బ్యాటరీ రేడియో, ప్రథమ చికిత్స కిట్ సిద్ధంగా ఉంచండి।' },
+            bn: { title: 'জরুরি সরবরাহ মজুদ করুন', content: '3 দিনের খাবার, পানি, ওষুধ, টর্চলাইট, ব্যাটারি রেডিও, প্রাথমিক চিকিৎসা কিট প্রস্তুত রাখুন।' },
+            kn: { title: 'ತುರ್ತು ಸರಬರಾಜುಗಳನ್ನು ಸಂಗ್ರಹಿಸಿ', content: '3 ದಿನಗಳ ಆಹಾರ, ನೀರು, ಔಷಧಗಳು, ಫ್ಲ್ಯಾಷ್‌ಲೈಟ್, ಬ್ಯಾಟರಿ ರೇಡಿಯೋ, ಪ್ರಥಮ ಚಿಕಿತ್ಸಾ ಕಿಟ್ ಸಿದ್ಧವಾಗಿರಿಸಿ।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Go Outside During Eye', content: 'Don\'t go outside during eye of storm. Calm is temporary, other side is coming.', type: 'dont',
+          translations: {
+            hi: { title: 'आंख के दौरान बाहर न जाएं', content: 'तूफान की आंख के दौरान बाहर न जाएं। शांति अस्थायी है, दूसरा पक्ष आ रहा है।' },
+            ta: { title: 'புயலின் கண்ணின் போது வெளியே செல்லாதீர்கள்', content: 'புயலின் கண்ணின் போது வெளியே செல்லாதீர்கள். அமைதி தற்காலிகமானது, மறுபக்கம் வருகிறது।' },
+            te: { title: 'తుఫాను కన్ను సమయంలో బయటకు వెళ్లవద్దు', content: 'తుఫాను కన్ను సమయంలో బయటకు వెళ్లవద్దు. ప్రశాంతత తాత్కాలికం, మరో వైపు వస్తోంది।' },
+            bn: { title: 'ঝড়ের চোখের সময় বাইরে যাবেন না', content: 'ঝড়ের চোখের সময় বাইরে যাবেন না। শান্ত অস্থায়ী, অন্য দিক আসছে।' },
+            kn: { title: 'ಚಂಡಮಾರುತದ ಕಣ್ಣಿನ ಸಮಯದಲ್ಲಿ ಹೊರಗೆ ಹೋಗಬೇಡಿ', content: 'ಚಂಡಮಾರುತದ ಕಣ್ಣಿನ ಸಮಯದಲ್ಲಿ ಹೊರಗೆ ಹೋಗಬೇಡಿ. ಶಾಂತತೆ ತಾತ್ಕಾಲಿಕ, ಇನ್ನೊಂದು ಭಾಗ ಬರುತ್ತಿದೆ।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Use Candles', content: 'Don\'t use candles during power outage. Gas leaks possible, use flashlights only.', type: 'dont',
+          translations: {
+            hi: { title: 'मोमबत्तियों का उपयोग न करें', content: 'बिजली कटौती के दौरान मोमबत्तियों का उपयोग न करें। गैस लीक संभव है, केवल टॉर्च का उपयोग करें।' },
+            ta: { title: 'மெழுகுவர்த்திகளைப் பயன்படுத்தாதீர்கள்', content: 'மின்தடையின் போது மெழுகுவர்த்திகளைப் பயன்படுத்தாதீர்கள். எரிவாயு கசிவு சாத்தியம், மின்விளக்குகளை மட்டும் பயன்படுத்தவும்।' },
+            te: { title: 'కొవ్వొత్తులను ఉపయోగించవద్దు', content: 'విద్యుత్ అంతరాయం సమయంలో కొవ్వొత్తులను ఉపయోగించవద్దు. గ్యాస్ లీకు సాధ్యం, ఫ్లాష్‌లైట్లు మాత్రమే ఉపయోగించండి।' },
+            bn: { title: 'মোমবাতি ব্যবহার করবেন না', content: 'বিদ্যুৎ বিভ্রাটের সময় মোমবাতি ব্যবহার করবেন না। গ্যাস লিক সম্ভব, শুধুমাত্র টর্চলাইট ব্যবহার করুন।' },
+            kn: { title: 'ಮೇಣದಬತ್ತಿಗಳನ್ನು ಬಳಸಬೇಡಿ', content: 'ವಿದ್ಯುತ್ ಕಡಿತದ ಸಮಯದಲ್ಲಿ ಮೇಣದಬತ್ತಿಗಳನ್ನು ಬಳಸಬೇಡಿ. ಅನಿಲ ಸೋರಿಕೆ ಸಾಧ್ಯ, ಫ್ಲ್ಯಾಷ್‌ಲೈಟ್‌ಗಳನ್ನು ಮಾತ್ರ ಬಳಸಿ।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Touch Downed Power Lines', content: 'Don\'t go near or touch fallen power lines. Always assume they\'re live.', type: 'dont',
+          translations: {
+            hi: { title: 'गिरी बिजली लाइनों को न छुएं', content: 'गिरी हुई बिजली लाइनों के पास न जाएं या न छुएं। हमेशा मानें कि वे जीवित हैं।' },
+            ta: { title: 'விழுந்த மின் கம்பிகளைத் தொடாதீர்கள்', content: 'விழுந்த மின் கம்பிகளுக்கு அருகில் செல்லாதீர்கள் அல்லது தொடாதீர்கள். அவை எப்போதும் மின்சாரம் உள்ளவை என்று கருதுங்கள்।' },
+            te: { title: 'పడిపోయిన విద్యుత్ లైన్లను తాకవద్దు', content: 'పడిపోయిన విద్యుత్ లైన్ల దగ్గరకు వెళ్లవద్దు లేదా తాకవద్దు. అవి ఎల్లప్పుడూ సజీవంగా ఉన్నాయని అనుకోండి।' },
+            bn: { title: 'পড়ে যাওয়া বিদ্যুৎ লাইন স্পর্শ করবেন না', content: 'পড়ে যাওয়া বিদ্যুৎ লাইনের কাছে যাবেন না বা স্পর্শ করবেন না। সবসময় ধরে নিন যে তারা জীবিত।' },
+            kn: { title: 'ಬಿದ್ದ ವಿದ್ಯುತ್ ಲೈನ್‌ಗಳನ್ನು ಮುಟ್ಟಬೇಡಿ', content: 'ಬಿದ್ದ ವಿದ್ಯುತ್ ಲೈನ್‌ಗಳ ಹತ್ತಿರ ಹೋಗಬೇಡಿ ಅಥವಾ ಮುಟ್ಟಬೇಡಿ. ಅವು ಯಾವಾಗಲೂ ಜೀವಂತವಾಗಿವೆ ಎಂದು ಭಾವಿಸಿ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Return Home Too Soon', content: 'Don\'t return until authorities declare area safe. Hidden dangers may exist.', type: 'dont',
+          translations: {
+            hi: { title: 'बहुत जल्दी घर न लौटें', content: 'जब तक अधिकारी क्षेत्र को सुरक्षित घोषित न करें तब तक वापस न लौटें। छिपे खतरे मौजूद हो सकते हैं।' },
+            ta: { title: 'விரைவில் வீட்டுக்குத் திரும்பாதீர்கள்', content: 'அதிகாரிகள் பகுதி பாதுகாப்பானது என்று அறிவிக்கும் வரை திரும்ப வராதீர்கள். மறைந்த ஆபத்துகள் இருக்கலாம்।' },
+            te: { title: 'చాలా త్వరగా ఇంటికి తిరిగి రావద్దు', content: 'అధికారులు ప్రాంతం సురక్షితమని ప్రకటించే వరకు తిరిగి రావద్దు. దాగి ఉన్న ప్రమాదాలు ఉండవచ్చు।' },
+            bn: { title: 'খুব শীঘ্রই বাড়িতে ফিরবেন না', content: 'কর্তৃপক্ষ এলাকা নিরাপদ ঘোষণা না করা পর্যন্ত ফিরবেন না। লুকানো বিপদ থাকতে পারে।' },
+            kn: { title: 'ಬೇಗನೆ ಮನೆಗೆ ಹಿಂತಿರುಗಬೇಡಿ', content: 'ಅಧಿಕಾರಿಗಳು ಪ್ರದೇಶವನ್ನು ಸುರಕ್ಷಿತವೆಂದು ಘೋಷಿಸುವವರೆಗೆ ಹಿಂತಿರುಗಬೇಡಿ. ಅಡಗಿರುವ ಅಪಾಯಗಳು ಇರಬಹುದು।' },
+          }
+        },
+      ],
+    },
+    {
+      disaster: DisasterType.TSUNAMI,
+      label: 'Tsunami Safety',
+      translations: {
+        hi: 'सुनामी सुरक्षा',
+        ta: 'சுனாமி பாதுகாப்பு',
+        te: 'సునామీ భద్రత',
+        bn: 'সুনামি নিরাপত্তা',
+        kn: 'ಸುನಾಮಿ ಸುರಕ್ಷತೆ',
+      },
+      icon: 'water',
+      color: '#007AFF',
+      tips: [
+        { id: '1', title: 'Move to High Ground', content: 'Move inland or to high ground immediately if earthquake felt near coast.', type: 'do',
+          translations: {
+            hi: { title: 'ऊंची जगह पर जाएं', content: 'यदि तट के पास भूकंप महसूस हो तो तुरंत अंदर या ऊंची जगह पर जाएं।' },
+            ta: { title: 'உயரமான இடத்திற்கு செல்லுங்கள்', content: 'கடற்கரைக்கு அருகில் நிலநடுக்கம் உணரப்பட்டால் உடனடியாக உள்நாட்டுக்கு அல்லது உயரமான இடத்திற்கு செல்லுங்கள்।' },
+            te: { title: 'ఎత్తైన ప్రదేశానికి వెళ్లండి', content: 'తీరానికి సమీపంలో భూకంపం అనుభూతి చెందితే వెంటనే లోపలికి లేదా ఎత్తైన ప్రదేశానికి వెళ్లండి।' },
+            bn: { title: 'উঁচু জায়গায় চলে যান', content: 'উপকূলের কাছে ভূমিকম্প অনুভূত হলে অবিলম্বে অভ্যন্তরে বা উঁচু জায়গায় চলে যান।' },
+            kn: { title: 'ಎತ್ತರದ ಸ್ಥಳಕ್ಕೆ ಹೋಗಿ', content: 'ಕರಾವಳಿ ಹತ್ತಿರ ಭೂಕಂಪ ಅನುಭವವಾದರೆ ತಕ್ಷಣ ಒಳನಾಡಿಗೆ ಅಥವಾ ಎತ್ತರದ ಸ್ಥಳಕ್ಕೆ ಹೋಗಿ।' },
+          }
+        },
+        { id: '2', title: 'Move Quickly on Foot', content: 'Abandon vehicle and move on foot if traffic jams occur. Run to higher ground.', type: 'do',
+          translations: {
+            hi: { title: 'पैदल तेजी से चलें', content: 'यदि ट्रैफिक जाम हो तो वाहन छोड़ दें और पैदल चलें। ऊंची जगह की ओर दौड़ें।' },
+            ta: { title: 'விரைவாக நடந்து செல்லுங்கள்', content: 'போக்குவரத்து நெரிசல் ஏற்பட்டால் வாகனத்தை விட்டுவிட்டு நடந்து செல்லுங்கள். உயரமான இடத்திற்கு ஓடுங்கள்।' },
+            te: { title: 'కాలినడకన త్వరగా వెళ్లండి', content: 'ట్రాఫిక్ జామ్‌లు సంభవిస్తే వాహనాన్ని వదిలి కాలినడకన వెళ్లండి. ఎత్తైన ప్రదేశానికి పరుగెత్తండి।' },
+            bn: { title: 'দ্রুত পায়ে হেঁটে চলুন', content: 'ট্রাফিক জ্যাম হলে গাড়ি ছেড়ে পায়ে হেঁটে চলুন। উঁচু জায়গায় দৌড়ান।' },
+            kn: { title: 'ಕಾಲಾಸಿಯಾಗಿ ವೇಗವಾಗಿ ಚಲಿಸಿ', content: 'ಟ್ರಾಫಿಕ್ ಜಾಮ್ ಸಂಭವಿಸಿದರೆ ವಾಹನವನ್ನು ತ್ಯಜಿಸಿ ಕಾಲಾಸಿಯಾಗಿ ಚಲಿಸಿ. ಎತ್ತರದ ಸ್ಥಳಕ್ಕೆ ಓಡಿ।' },
+          }
+        },
+        { id: '3', title: 'Follow Evacuation Routes', content: 'Know and follow posted tsunami evacuation routes in coastal areas.', type: 'do',
+          translations: {
+            hi: { title: 'निकासी मार्गों का पालन करें', content: 'तटीय क्षेत्रों में पोस्ट किए गए सुनामी निकासी मार्गों को जानें और उनका पालन करें।' },
+            ta: { title: 'வெளியேற்ற வழிகளைப் பின்பற்றவும்', content: 'கடலோரப் பகுதிகளில் பதிவு செய்யப்பட்ட சுனாமி வெளியேற்ற வழிகளை அறிந்து பின்பற்றவும்।' },
+            te: { title: 'తరలింపు మార్గాలను అనుసరించండి', content: 'తీర ప్రాంతాల్లో పోస్ట్ చేసిన సునామీ తరలింపు మార్గాలను తెలుసుకోండి మరియు అనుసరించండి।' },
+            bn: { title: 'সরিয়ে নেওয়ার পথ অনুসরণ করুন', content: 'উপকূলীয় অঞ্চলে পোস্ট করা সুনামি সরিয়ে নেওয়ার পথ জানুন এবং অনুসরণ করুন।' },
+            kn: { title: 'ಸ್ಥಳಾಂತರ ಮಾರ್ಗಗಳನ್ನು ಅನುಸರಿಸಿ', content: 'ಕರಾವಳಿ ಪ್ರದೇಶಗಳಲ್ಲಿ ಪೋಸ್ಟ್ ಮಾಡಿದ ಸುನಾಮಿ ಸ್ಥಳಾಂತರ ಮಾರ್ಗಗಳನ್ನು ತಿಳಿದುಕೊಳ್ಳಿ ಮತ್ತು ಅನುಸರಿಸಿ।' },
+          }
+        },
+        { id: '4', title: 'Stay Away Until Safe', content: 'Stay away from coast for hours after tsunami. Multiple waves can come.', type: 'do',
+          translations: {
+            hi: { title: 'सुरक्षित होने तक दूर रहें', content: 'सुनामी के बाद घंटों तक तट से दूर रहें। कई लहरें आ सकती हैं।' },
+            ta: { title: 'பாதுகாப்பாக இருக்கும் வரை விலகி இருங்கள்', content: 'சுனாமிக்குப் பிறகு மணிநேரங்களுக்கு கடற்கரையிலிருந்து விலகி இருங்கள். பல அலைகள் வரலாம்।' },
+            te: { title: 'సురక్షితంగా ఉండే వరకు దూరంగా ఉండండి', content: 'సునామీ తర్వాత గంటల తరబడి తీరం నుండి దూరంగా ఉండండి. అనేక అలలు రావచ్చు।' },
+            bn: { title: 'নিরাপদ না হওয়া পর্যন্ত দূরে থাকুন', content: 'সুনামির পরে ঘন্টার জন্য উপকূল থেকে দূরে থাকুন। একাধিক তরঙ্গ আসতে পারে।' },
+            kn: { title: 'ಸುರಕ್ಷಿತವಾಗುವವರೆಗೆ ದೂರವಿರಿ', content: 'ಸುನಾಮಿ ನಂತರ ಗಂಟೆಗಳ ಕಾಲ ಕರಾವಳಿಯಿಂದ ದೂರವಿರಿ. ಅನೇಕ ಅಲೆಗಳು ಬರಬಹುದು।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Go to Beach', content: 'Don\'t go to beach to watch tsunami. Wave travels faster than you can run.', type: 'dont',
+          translations: {
+            hi: { title: 'समुद्र तट पर न जाएं', content: 'सुनामी देखने के लिए समुद्र तट पर न जाएं। लहर आपके दौड़ने से तेज चलती है।' },
+            ta: { title: 'கடற்கரைக்கு செல்லாதீர்கள்', content: 'சுனாமியைப் பார்க்க கடற்கரைக்கு செல்லாதீர்கள். அலை நீங்கள் ஓட முடியாத வேகத்தில் பயணிக்கிறது।' },
+            te: { title: 'బీచ్‌కి వెళ్లవద్దు', content: 'సునామీని చూడటానికి బీచ్‌కి వెళ్లవద్దు. అల మీరు పరుగెత్తగలిగే దానికంటే వేగంగా ప్రయాణిస్తుంది।' },
+            bn: { title: 'সৈকতে যাবেন না', content: 'সুনামি দেখতে সৈকতে যাবেন না। ঢেউ আপনার দৌড়ানোর চেয়ে দ্রুত ভ্রমণ করে।' },
+            kn: { title: 'ಬೀಚ್‌ಗೆ ಹೋಗಬೇಡಿ', content: 'ಸುನಾಮಿಯನ್ನು ವೀಕ್ಷಿಸಲು ಬೀಚ್‌ಗೆ ಹೋಗಬೇಡಿ. ಅಲೆ ನೀವು ಓಡುವುದಕ್ಕಿಂತ ವೇಗವಾಗಿ ಪ್ರಯಾಣಿಸುತ್ತದೆ।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Return Too Early', content: 'Don\'t return to coast until authorities say it\'s safe. More waves may come.', type: 'dont',
+          translations: {
+            hi: { title: 'बहुत जल्दी वापस न लौटें', content: 'जब तक अधिकारी सुरक्षित न कहें तब तक तट पर वापस न लौटें। और लहरें आ सकती हैं।' },
+            ta: { title: 'மிக விரைவாக திரும்பாதீர்கள்', content: 'அதிகாரிகள் பாதுகாப்பானது என்று கூறும் வரை கடற்கரைக்குத் திரும்பாதீர்கள். மேலும் அலைகள் வரலாம்।' },
+            te: { title: 'చాలా త్వరగా తిరిగి రావద్దు', content: 'అధికారులు సురక్షితమని చెప్పే వరకు తీరానికి తిరిగి రావద్దు. మరిన్ని అలలు రావచ్చు।' },
+            bn: { title: 'খুব তাড়াতাড়ি ফিরবেন না', content: 'কর্তৃপক্ষ নিরাপদ বলা পর্যন্ত উপকূলে ফিরবেন না। আরও তরঙ্গ আসতে পারে।' },
+            kn: { title: 'ಬೇಗನೆ ಹಿಂತಿರುಗಬೇಡಿ', content: 'ಅಧಿಕಾರಿಗಳು ಸುರಕ್ಷಿತವೆಂದು ಹೇಳುವವರೆಗೆ ಕರಾವಳಿಗೆ ಹಿಂತಿರುಗಬೇಡಿ. ಹೆಚ್ಚಿನ ಅಲೆಗಳು ಬರಬಹುದು।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Assume One Wave', content: 'Don\'t think first wave is the last. Tsunamis are series of waves over hours.', type: 'dont',
+          translations: {
+            hi: { title: 'एक लहर मान न लें', content: 'यह न सोचें कि पहली लहर आखिरी है। सुनामी घंटों में लहरों की श्रृंखला है।' },
+            ta: { title: 'ஒரே அலை என்று கருதாதீர்கள்', content: 'முதல் அலை கடைசி என்று நினைக்காதீர்கள். சுனாமிகள் மணிநேரங்களில் அலைகளின் தொடர்ச்சி।' },
+            te: { title: 'ఒక అల అని అనుకోవద్దు', content: 'మొదటి అల చివరిది అని అనుకోవద్దు. సునామీలు గంటల పాటు అలల శ్రేణి।' },
+            bn: { title: 'একটি তরঙ্গ অনুমান করবেন না', content: 'প্রথম তরঙ্গ শেষ বলে মনে করবেন না। সুনামি ঘন্টার মধ্যে তরঙ্গের সিরিজ।' },
+            kn: { title: 'ಒಂದು ಅಲೆ ಎಂದು ಭಾವಿಸಬೇಡಿ', content: 'ಮೊದಲ ಅಲೆ ಕೊನೆಯದು ಎಂದು ಯೋಚಿಸಬೇಡಿ. ಸುನಾಮಿಗಳು ಗಂಟೆಗಳ ಕಾಲ ಅಲೆಗಳ ಸರಣಿ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Stay in Evacuation Zone', content: 'Don\'t stay in tsunami evacuation zone after warning. Even small tsunamis dangerous.', type: 'dont',
+          translations: {
+            hi: { title: 'निकासी क्षेत्र में न रहें', content: 'चेतावनी के बाद सुनामी निकासी क्षेत्र में न रहें। छोटी सुनामी भी खतरनाक होती है।' },
+            ta: { title: 'வெளியேற்ற மண்டலத்தில் இருக்காதீர்கள்', content: 'எச்சரிக்கைக்குப் பிறகு சுனாமி வெளியேற்ற மண்டலத்தில் இருக்காதீர்கள். சிறிய சுனாமிகள் கூட ஆபத்தானவை।' },
+            te: { title: 'తరలింపు జోన్‌లో ఉండవద్దు', content: 'హెచ్చరిక తర్వాత సునామీ తరలింపు జోన్‌లో ఉండవద్దు. చిన్న సునామీలు కూడా ప్రమాదకరమైనవి।' },
+            bn: { title: 'সরিয়ে নেওয়ার জোনে থাকবেন না', content: 'সতর্কতার পরে সুনামি সরিয়ে নেওয়ার জোনে থাকবেন না। এমনকি ছোট সুনামিও বিপজ্জনক।' },
+            kn: { title: 'ಸ್ಥಳಾಂತರ ವಲಯದಲ್ಲಿ ಉಳಿಯಬೇಡಿ', content: 'ಎಚ್ಚರಿಕೆಯ ನಂತರ ಸುನಾಮಿ ಸ್ಥಳಾಂತರ ವಲಯದಲ್ಲಿ ಉಳಿಯಬೇಡಿ. ಸಣ್ಣ ಸುನಾಮಿಗಳು ಕೂಡ ಅಪಾಯಕಾರಿ।' },
+          }
+        },
+      ],
+    },
+    {
+      disaster: DisasterType.AVALANCHE,
+      label: 'Avalanche Safety',
+      translations: {
+        hi: 'हिमस्खलन सुरक्षा',
+        ta: 'பனிச்சரிவு பாதுகாப்பு',
+        te: 'హిమపాతం భద్రత',
+        bn: 'তুষারপাত নিরাপত্তা',
+        kn: 'ಹಿಮಕುಸಿತ ಸುರಕ್ಷತೆ',
+      },
+      icon: 'snow',
+      color: '#E5E5EA',
+      tips: [
+        { id: '1', title: 'Check Avalanche Forecast', content: 'Always check avalanche forecast before going to mountains. Avoid high-risk areas.', type: 'do',
+          translations: {
+            hi: { title: 'हिमस्खलन पूर्वानुमान जांचें', content: 'पहाड़ों पर जाने से पहले हमेशा हिमस्खलन पूर्वानुमान जांचें। उच्च जोखिम वाले क्षेत्रों से बचें।' },
+            ta: { title: 'பனிச்சரிவு முன்னறிவிப்பைச் சரிபார்க்கவும்', content: 'மலைகளுக்குச் செல்வதற்கு முன் எப்போதும் பனிச்சரிவு முன்னறிவிப்பைச் சரிபார்க்கவும். அதிக ஆபத்துள்ள பகுதிகளைத் தவிர்க்கவும்।' },
+            te: { title: 'హిమపాతం అంచనాను తనిఖీ చేయండి', content: 'పర్వతాలకు వెళ్లే ముందు ఎల్లప్పుడూ హిమపాతం అంచనాను తనిఖీ చేయండి. అధిక ప్రమాద ప్రాంతాలను నివారించండి।' },
+            bn: { title: 'তুষারপাত পূর্বাভাস পরীক্ষা করুন', content: 'পাহাড়ে যাওয়ার আগে সবসময় তুষারপাত পূর্বাভাস পরীক্ষা করুন। উচ্চ ঝুঁকিপূর্ণ এলাকা এড়িয়ে চলুন।' },
+            kn: { title: 'ಹಿಮಕುಸಿತ ಮುನ್ಸೂಚನೆ ಪರಿಶೀಲಿಸಿ', content: 'ಪರ್ವತಗಳಿಗೆ ಹೋಗುವ ಮೊದಲು ಯಾವಾಗಲೂ ಹಿಮಕುಸಿತ ಮುನ್ಸೂಚನೆಯನ್ನು ಪರಿಶೀಲಿಸಿ. ಹೆಚ್ಚಿನ ಅಪಾಯದ ಪ್ರದೇಶಗಳನ್ನು ತಪ್ಪಿಸಿ।' },
+          }
+        },
+        { id: '2', title: 'Carry Safety Equipment', content: 'Carry avalanche beacon, probe, shovel when in avalanche terrain. Practice using them.', type: 'do',
+          translations: {
+            hi: { title: 'सुरक्षा उपकरण ले जाएं', content: 'हिमस्खलन क्षेत्र में बीकन, जांच, फावड़ा ले जाएं। उनका उपयोग करने का अभ्यास करें।' },
+            ta: { title: 'பாதுகாப்பு உபகரணங்களை எடுத்துச் செல்லுங்கள்', content: 'பனிச்சரிவு நிலப்பரப்பில் பீக்கன், ஆய்வு, மண்வெட்டி எடுத்துச் செல்லுங்கள். அவற்றைப் பயன்படுத்துவதைப் பயிற்சி செய்யுங்கள்।' },
+            te: { title: 'భద్రతా పరికరాలను తీసుకెళ్లండి', content: 'హిమపాతం భూభాగంలో బీకన్, ప్రోబ్, పారతో తీసుకెళ్లండి. వాటిని ఉపయోగించడం ప్రాక్టీస్ చేయండి।' },
+            bn: { title: 'নিরাপত্তা সরঞ্জাম বহন করুন', content: 'তুষারপাত ভূখণ্ডে বীকন, প্রোব, কোদাল বহন করুন। সেগুলি ব্যবহার করার অনুশীলন করুন।' },
+            kn: { title: 'ಸುರಕ್ಷತಾ ಸಾಧನಗಳನ್ನು ಹೊತ್ತುಕೊಂಡು ಹೋಗಿ', content: 'ಹಿಮಕುಸಿತ ಪ್ರದೇಶದಲ್ಲಿ ಬೀಕನ್, ಪ್ರೋಬ್, ಸನಿಕೆಯನ್ನು ಹೊತ್ತುಕೊಂಡು ಹೋಗಿ. ಅವುಗಳನ್ನು ಬಳಸುವುದನ್ನು ಅಭ್ಯಾಸ ಮಾಡಿ।' },
+          }
+        },
+        { id: '3', title: 'Travel One at a Time', content: 'Cross avalanche terrain one person at a time. Don\'t group together.', type: 'do',
+          translations: {
+            hi: { title: 'एक समय में एक यात्रा करें', content: 'हिमस्खलन क्षेत्र को एक बार में एक व्यक्ति पार करें। समूह में न रहें।' },
+            ta: { title: 'ஒரு நேரத்தில் ஒருவர் பயணம் செய்யுங்கள்', content: 'பனிச்சரிவு நிலப்பரப்பை ஒரு நேரத்தில் ஒரு நபர் கடக்கவும். ஒன்றாக கூட்டமாக இருக்காதீர்கள்।' },
+            te: { title: 'ఒక సమయంలో ఒకరు ప్రయాణించండి', content: 'హిమపాతం భూభాగాన్ని ఒక సమయంలో ఒక వ్యక్తి దాటండి. కలిసి సమూహంగా ఉండవద్దు।' },
+            bn: { title: 'একবারে একজন ভ্রমণ করুন', content: 'তুষারপাত ভূখণ্ড একবারে একজন ব্যক্তি অতিক্রম করুন। একসাথে দলবদ্ধ হবেন না।' },
+            kn: { title: 'ಒಂದು ಸಮಯದಲ್ಲಿ ಒಬ್ಬರು ಪ್ರಯಾಣಿಸಿ', content: 'ಹಿಮಕುಸಿತ ಪ್ರದೇಶವನ್ನು ಒಂದು ಸಮಯದಲ್ಲಿ ಒಬ್ಬ ವ್ಯಕ್ತಿ ದಾಟಿ. ಒಟ್ಟಿಗೆ ಗುಂಪು ಮಾಡಬೇಡಿ।' },
+          }
+        },
+        { id: '4', title: 'Swimming Motion if Caught', content: 'Use swimming motion to stay on surface if caught. Create air pocket before stopping.', type: 'do',
+          translations: {
+            hi: { title: 'फंसने पर तैरने की गति', content: 'फंसने पर सतह पर रहने के लिए तैरने की गति का उपयोग करें। रुकने से पहले हवा की जेब बनाएं।' },
+            ta: { title: 'சிக்கியிருந்தால் நீச்சல் இயக்கம்', content: 'சிக்கியிருந்தால் மேற்பரப்பில் இருக்க நீச்சல் இயக்கத்தைப் பயன்படுத்தவும். நிறுத்துவதற்கு முன் காற்று பை உருவாக்கவும்।' },
+            te: { title: 'చిక్కుకుంటే స్విమ్మింగ్ మోషన్', content: 'చిక్కుకుంటే ఉపరితలంపై ఉండటానికి స్విమ్మింగ్ మోషన్ ఉపయోగించండి. ఆగే ముందు గాలి జేబు సృష్టించండి।' },
+            bn: { title: 'ধরা পড়লে সাঁতারের গতি', content: 'ধরা পড়লে পৃষ্ঠে থাকার জন্য সাঁতারের গতি ব্যবহার করুন। থামার আগে বায়ু পকেট তৈরি করুন।' },
+            kn: { title: 'ಸಿಕ್ಕಿಕೊಂಡರೆ ಈಜು ಚಲನೆ', content: 'ಸಿಕ್ಕಿಕೊಂಡರೆ ಮೇಲ್ಮೈಯಲ್ಲಿ ಉಳಿಯಲು ಈಜು ಚಲನೆಯನ್ನು ಬಳಸಿ. ನಿಲ್ಲುವ ಮೊದಲು ಗಾಳಿ ಜೇಬು ರಚಿಸಿ।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Travel Alone', content: 'Don\'t go to avalanche terrain alone. Always have partner who can rescue you.', type: 'dont',
+          translations: {
+            hi: { title: 'अकेले यात्रा न करें', content: 'हिमस्खलन क्षेत्र में अकेले न जाएं। हमेशा ऐसा साथी रखें जो आपको बचा सके।' },
+            ta: { title: 'தனியாக பயணம் செய்யாதீர்கள்', content: 'பனிச்சரிவு நிலப்பரப்புக்கு தனியாக செல்லாதீர்கள். உங்களை மீட்கக்கூடிய பங்குதாரர் எப்போதும் இருக்க வேண்டும்।' },
+            te: { title: 'ఒంటరిగా ప్రయాణించవద్దు', content: 'హిమపాతం భూభాగానికి ఒంటరిగా వెళ్లవద్దు. మిమ్మల్ని రక్షించగల భాగస్వామిని ఎల్లప్పుడూ కలిగి ఉండండి।' },
+            bn: { title: 'একা ভ্রমণ করবেন না', content: 'তুষারপাত ভূখণ্ডে একা যাবেন না। সবসময় এমন সঙ্গী রাখুন যে আপনাকে উদ্ধার করতে পারে।' },
+            kn: { title: 'ಏಕಾಂಗಿಯಾಗಿ ಪ್ರಯಾಣಿಸಬೇಡಿ', content: 'ಹಿಮಕುಸಿತ ಪ್ರದೇಶಕ್ಕೆ ಏಕಾಂಗಿಯಾಗಿ ಹೋಗಬೇಡಿ. ನಿಮ್ಮನ್ನು ರಕ್ಷಿಸಬಲ್ಲ ಸಂಗಾತಿಯನ್ನು ಯಾವಾಗಲೂ ಹೊಂದಿರಿ।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Ignore Warning Signs', content: 'Don\'t ignore recent avalanche activity, cracking sounds, or heavy snowfall warnings.', type: 'dont',
+          translations: {
+            hi: { title: 'चेतावनी संकेतों को नजरअंदाज न करें', content: 'हाल की हिमस्खलन गतिविधि, दरार की आवाज, या भारी बर्फबारी चेतावनियों को नजरअंदाज न करें।' },
+            ta: { title: 'எச்சரிக்கை அறிகுறிகளை புறக்கணிக்காதீர்கள்', content: 'சமீபத்திய பனிச்சரிவு செயல்பாடு, விரிசல் ஒலிகள் அல்லது கனமான பனிப்பொழிவு எச்சரிக்கைகளை புறக்கணிக்காதீர்கள்।' },
+            te: { title: 'హెచ్చరిక సంకేతాలను విస్మరించవద్దు', content: 'ఇటీవలి హిమపాతం కార్యకలాపాలు, పగుళ్లు శబ్దాలు లేదా భారీ మంచు కురుపు హెచ్చరికలను విస్మరించవద్దు।' },
+            bn: { title: 'সতর্কতা চিহ্ন উপেক্ষা করবেন না', content: 'সাম্প্রতিক তুষারপাত কার্যকলাপ, ফাটল শব্দ বা ভারী তুষারপাত সতর্কতা উপেক্ষা করবেন না।' },
+            kn: { title: 'ಎಚ್ಚರಿಕೆ ಚಿಹ್ನೆಗಳನ್ನು ನಿರ್ಲಕ್ಷಿಸಬೇಡಿ', content: 'ಇತ್ತೀಚಿನ ಹಿಮಕುಸಿತ ಚಟುವಟಿಕೆ, ಬಿರುಕು ಶಬ್ದಗಳು ಅಥವಾ ಭಾರೀ ಹಿಮಪಾತ ಎಚ್ಚರಿಕೆಗಳನ್ನು ನಿರ್ಲಕ್ಷಿಸಬೇಡಿ।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Ski Off-Piste Alone', content: 'Don\'t ski or snowboard off marked trails without proper training and equipment.', type: 'dont',
+          translations: {
+            hi: { title: 'अकेले ऑफ-पिस्ट स्की न करें', content: 'उचित प्रशिक्षण और उपकरण के बिना चिह्नित ट्रेल्स से बाहर स्की या स्नोबोर्ड न करें।' },
+            ta: { title: 'தனியாக ஆஃப்-பிஸ்டில் ஸ்கை செய்யாதீர்கள்', content: 'சரியான பயிற்சி மற்றும் உபகரணங்கள் இல்லாமல் குறிக்கப்பட்ட பாதைகளுக்கு வெளியே ஸ்கை அல்லது ஸ்னோபோர்டு செய்யாதீர்கள்।' },
+            te: { title: 'ఒంటరిగా ఆఫ్-పిస్టే స్కీ చేయవద్దు', content: 'సరైన శిక్షణ మరియు పరికరాలు లేకుండా గుర్తించిన ట్రయిల్స్ వెలుపల స్కీ లేదా స్నోబోర్డ్ చేయవద్దు।' },
+            bn: { title: 'একা অফ-পিস্টে স্কি করবেন না', content: 'সঠিক প্রশিক্ষণ এবং সরঞ্জাম ছাড়া চিহ্নিত ট্রেইল বন্ধ স্কি বা স্নোবোর্ড করবেন না।' },
+            kn: { title: 'ಏಕಾಂಗಿಯಾಗಿ ಆಫ್-ಪಿಸ್ಟೆ ಸ್ಕೀ ಮಾಡಬೇಡಿ', content: 'ಸರಿಯಾದ ತರಬೇತಿ ಮತ್ತು ಸಾಧನಗಳಿಲ್ಲದೆ ಗುರುತಿಸಿದ ಹಾದಿಗಳ ಹೊರಗೆ ಸ್ಕೀ ಅಥವಾ ಸ್ನೋಬೋರ್ಡ್ ಮಾಡಬೇಡಿ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Panic if Buried', content: 'Don\'t panic if buried. Conserve oxygen, stay calm. Rescuers are coming.', type: 'dont',
+          translations: {
+            hi: { title: 'दबे होने पर घबराएं नहीं', content: 'दबे होने पर घबराएं नहीं। ऑक्सीजन बचाएं, शांत रहें। बचावकर्ता आ रहे हैं।' },
+            ta: { title: 'புதைந்திருந்தால் பீதியடைய வேண்டாம்', content: 'புதைந்திருந்தால் பீதியடைய வேண்டாம். ஆக்ஸிஜனை சேமிக்கவும், அமைதியாக இருங்கள். மீட்பவர்கள் வருகிறார்கள்।' },
+            te: { title: 'పాతిపెట్టబడితే భయపడవద్దు', content: 'పాతిపెట్టబడితే భయపడవద్దు. ఆక్సిజన్ ఆదా చేయండి, ప్రశాంతంగా ఉండండి. రక్షకులు వస్తున్నారు।' },
+            bn: { title: 'কবর দেওয়া হলে আতঙ্কিত হবেন না', content: 'কবর দেওয়া হলে আতঙ্কিত হবেন না। অক্সিজেন সংরক্ষণ করুন, শান্ত থাকুন। উদ্ধারকারীরা আসছেন।' },
+            kn: { title: 'ಹೂಳಿದರೆ ಗಾಬರಿಯಾಗಬೇಡಿ', content: 'ಹೂಳಿದರೆ ಗಾಬರಿಯಾಗಬೇಡಿ. ಆಮ್ಲಜನಕವನ್ನು ಉಳಿಸಿ, ಶಾಂತವಾಗಿರಿ. ರಕ್ಷಕರು ಬರುತ್ತಿದ್ದಾರೆ।' },
+          }
+        },
+      ],
+    },
+    {
+      disaster: DisasterType.LANDSLIDE,
+      label: 'Landslide Safety',
+      translations: {
+        hi: 'भूस्खलन सुरक्षा',
+        ta: 'நிலச்சரிவு பாதுகாப்பு',
+        te: 'కొండచరియలు భద్రత',
+        bn: 'ভূমিধস নিরাপত্তা',
+        kn: 'ಭೂಕುಸಿತ ಸುರಕ್ಷತೆ',
+      },
+      icon: 'triangle',
+      color: '#8E8E93',
+      tips: [
+        { id: '1', title: 'Know Warning Signs', content: 'Watch for cracks in ground, leaning trees, sudden water appearance as warning signs.', type: 'do',
+          translations: {
+            hi: { title: 'चेतावनी संकेत जानें', content: 'चेतावनी संकेतों के रूप में जमीन में दरारें, झुके पेड़, अचानक पानी की उपस्थिति देखें।' },
+            ta: { title: 'எச்சரிக்கை அறிகுறிகளை அறியுங்கள்', content: 'எச்சரிக்கை அறிகுறிகளாக தரையில் விரிசல்கள், சாய்ந்த மரங்கள், திடீர் நீர் தோற்றம் ஆகியவற்றைக் கவனியுங்கள்।' },
+            te: { title: 'హెచ్చరిక సంకేతాలను తెలుసుకోండి', content: 'హెచ్చరిక సంకేతాలుగా భూమిలో పగుళ్లు, వంగిన చెట్లు, అకస్మాత్తుగా నీరు కనిపించడాన్ని గమనించండి।' },
+            bn: { title: 'সতর্কতা চিহ্ন জানুন', content: 'সতর্কতা চিহ্ন হিসাবে মাটিতে ফাটল, ঝুঁকে যাওয়া গাছ, হঠাৎ জলের উপস্থিতি দেখুন।' },
+            kn: { title: 'ಎಚ್ಚರಿಕೆ ಚಿಹ್ನೆಗಳನ್ನು ತಿಳಿದುಕೊಳ್ಳಿ', content: 'ಎಚ್ಚರಿಕೆ ಚಿಹ್ನೆಗಳಾಗಿ ನೆಲದಲ್ಲಿ ಬಿರುಕುಗಳು, ಓರೆಯಾದ ಮರಗಳು, ಹಠಾತ್ ನೀರಿನ ಕಾಣಿಸಿಕೆಯನ್ನು ಗಮನಿಸಿ।' },
+          }
+        },
+        { id: '2', title: 'Evacuate Immediately', content: 'Evacuate immediately if landslide suspected. Don\'t wait for official warning.', type: 'do',
+          translations: {
+            hi: { title: 'तुरंत निकल जाएं', content: 'यदि भूस्खलन की आशंका हो तो तुरंत निकल जाएं। आधिकारिक चेतावनी की प्रतीक्षा न करें।' },
+            ta: { title: 'உடனடியாக வெளியேறுங்கள்', content: 'நிலச்சரிவு சந்தேகப்பட்டால் உடனடியாக வெளியேறுங்கள். அதிகாரப்பூர்வ எச்சரிக்கைக்காக காத்திருக்காதீர்கள்।' },
+            te: { title: 'వెంటనే ఖాళీ చేయండి', content: 'కొండచరియలు అనుమానం ఉంటే వెంటనే ఖాళీ చేయండి. అధికారిక హెచ్చరిక కోసం వేచి ఉండవద్దు।' },
+            bn: { title: 'অবিলম্বে সরিয়ে নিন', content: 'ভূমিধস সন্দেহ হলে অবিলম্বে সরিয়ে নিন। সরকারী সতর্কতার জন্য অপেক্ষা করবেন না।' },
+            kn: { title: 'ತಕ್ಷಣ ಖಾಲಿ ಮಾಡಿ', content: 'ಭೂಕುಸಿತ ಶಂಕಿಸಿದರೆ ತಕ್ಷಣ ಖಾಲಿ ಮಾಡಿ. ಅಧಿಕೃತ ಎಚ್ಚರಿಕೆಗಾಗಿ ಕಾಯಬೇಡಿ।' },
+          }
+        },
+        { id: '3', title: 'Move to Stable Ground', content: 'Move away from path of landslide to stable, higher ground perpendicular to flow.', type: 'do',
+          translations: {
+            hi: { title: 'स्थिर जमीन पर जाएं', content: 'भूस्खलन के मार्ग से दूर प्रवाह के लंबवत स्थिर, ऊंची जमीन पर जाएं।' },
+            ta: { title: 'நிலையான நிலத்திற்கு செல்லுங்கள்', content: 'நிலச்சரிவு பாதையிலிருந்து விலகி ஓட்டத்திற்கு செங்குத்தாக நிலையான, உயரமான நிலத்திற்கு செல்லுங்கள்।' },
+            te: { title: 'స్థిరమైన నేలకు వెళ్లండి', content: 'కొండచరియల మార్గం నుండి దూరంగా ప్రవాహానికి లంబంగా స్థిరమైన, ఎత్తైన నేలకు వెళ్లండి।' },
+            bn: { title: 'স্থিতিশীল ভূমিতে যান', content: 'ভূমিধসের পথ থেকে দূরে প্রবাহের লম্বভাবে স্থিতিশীল, উঁচু ভূমিতে যান।' },
+            kn: { title: 'ಸ್ಥಿರ ನೆಲಕ್ಕೆ ಹೋಗಿ', content: 'ಭೂಕುಸಿತ ಮಾರ್ಗದಿಂದ ದೂರ ಹರಿವಿಗೆ ಲಂಬವಾಗಿ ಸ್ಥಿರ, ಎತ್ತರದ ನೆಲಕ್ಕೆ ಹೋಗಿ।' },
+          }
+        },
+        { id: '4', title: 'Stay Alert During Storms', content: 'Stay especially alert during intense storms. Heavy rain triggers landslides.', type: 'do',
+          translations: {
+            hi: { title: 'तूफान के दौरान सतर्क रहें', content: 'तीव्र तूफान के दौरान विशेष रूप से सतर्क रहें। भारी बारिश भूस्खलन को ट्रिगर करती है।' },
+            ta: { title: 'புயல்களின் போது எச்சரிக்கையாக இருங்கள்', content: 'தீவிர புயல்களின் போது குறிப்பாக எச்சரிக்கையாக இருங்கள். கனமழை நிலச்சரிவுகளை தூண்டுகிறது।' },
+            te: { title: 'తుఫానుల సమయంలో అప్రమత్తంగా ఉండండి', content: 'తీవ్రమైన తుఫానుల సమయంలో ముఖ్యంగా అప్రమత్తంగా ఉండండి. భారీ వర్షం కొండచరియలను ప్రేరేపిస్తుంది।' },
+            bn: { title: 'ঝড়ের সময় সতর্ক থাকুন', content: 'তীব্র ঝড়ের সময় বিশেষভাবে সতর্ক থাকুন। ভারী বৃষ্টি ভূমিধস ট্রিগার করে।' },
+            kn: { title: 'ಚಂಡಮಾರುತಗಳ ಸಮಯದಲ್ಲಿ ಎಚ್ಚರದಿಂದಿರಿ', content: 'ತೀವ್ರ ಚಂಡಮಾರುತಗಳ ಸಮಯದಲ್ಲಿ ವಿಶೇಷವಾಗಿ ಎಚ್ಚರದಿಂದಿರಿ. ಭಾರೀ ಮಳೆಯು ಭೂಕುಸಿತಗಳನ್ನು ಪ್ರಚೋದಿಸುತ್ತದೆ।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Cross Landslide Path', content: 'Don\'t try to cross landslide path. Wait until authorities clear area safe.', type: 'dont',
+          translations: {
+            hi: { title: 'भूस्खलन मार्ग को पार न करें', content: 'भूस्खलन मार्ग को पार करने की कोशिश न करें। जब तक अधिकारी क्षेत्र को सुरक्षित घोषित न करें तब तक प्रतीक्षा करें।' },
+            ta: { title: 'நிலச்சரிவு பாதையைக் கடக்காதீர்கள்', content: 'நிலச்சரிவு பாதையைக் கடக்க முயற்சிக்காதீர்கள். அதிகாரிகள் பகுதி பாதுகாப்பானது என்று தெளிவுபடுத்தும் வரை காத்திருங்கள்।' },
+            te: { title: 'కొండచరియల మార్గాన్ని దాటవద్దు', content: 'కొండచరియల మార్గాన్ని దాటడానికి ప్రయత్నించవద్దు. అధికారులు ప్రాంతాన్ని సురక్షితంగా క్లియర్ చేసే వరకు వేచి ఉండండి।' },
+            bn: { title: 'ভূমিধস পথ অতিক্রম করবেন না', content: 'ভূমিধস পথ অতিক্রম করার চেষ্টা করবেন না। কর্তৃপক্ষ এলাকা নিরাপদ ঘোষণা না করা পর্যন্ত অপেক্ষা করুন।' },
+            kn: { title: 'ಭೂಕುಸಿತ ಮಾರ್ಗವನ್ನು ದಾಟಬೇಡಿ', content: 'ಭೂಕುಸಿತ ಮಾರ್ಗವನ್ನು ದಾಟಲು ಪ್ರಯತ್ನಿಸಬೇಡಿ. ಅಧಿಕಾರಿಗಳು ಪ್ರದೇಶವನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ತೆರವುಗೊಳಿಸುವವರೆಗೆ ಕಾಯಿರಿ।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Stay Near Slopes', content: 'Don\'t stay near steep slopes during heavy rain or after earthquakes.', type: 'dont',
+          translations: {
+            hi: { title: 'ढलानों के पास न रहें', content: 'भारी बारिश के दौरान या भूकंप के बाद खड़ी ढलानों के पास न रहें।' },
+            ta: { title: 'சரிவுகளுக்கு அருகில் இருக்காதீர்கள்', content: 'கனமழையின் போது அல்லது நிலநடுக்கத்திற்குப் பிறகு செங்குத்தான சரிவுகளுக்கு அருகில் இருக்காதீர்கள்।' },
+            te: { title: 'వాలుల దగ్గర ఉండవద్దు', content: 'భారీ వర్షం సమయంలో లేదా భూకంపం తర్వాత నిటారుగా ఉన్న వాలుల దగ్గర ఉండవద్దు।' },
+            bn: { title: 'ঢালের কাছে থাকবেন না', content: 'ভারী বৃষ্টির সময় বা ভূমিকম্পের পরে খাড়া ঢালের কাছে থাকবেন না।' },
+            kn: { title: 'ಇಳಿಜಾರುಗಳ ಹತ್ತಿರ ಇರಬೇಡಿ', content: 'ಭಾರೀ ಮಳೆಯ ಸಮಯದಲ್ಲಿ ಅಥವಾ ಭೂಕಂಪದ ನಂತರ ಕಡಿದಾದ ಇಳಿಜಾರುಗಳ ಹತ್ತಿರ ಇರಬೇಡಿ।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Return Too Soon', content: 'Don\'t return to area until authorities inspect and declare safe. More slides possible.', type: 'dont',
+          translations: {
+            hi: { title: 'बहुत जल्दी वापस न लौटें', content: 'जब तक अधिकारी निरीक्षण और सुरक्षित घोषित न करें तब तक क्षेत्र में वापस न लौटें। और स्लाइड संभव हैं।' },
+            ta: { title: 'விரைவில் திரும்பாதீர்கள்', content: 'அதிகாரிகள் ஆய்வு செய்து பாதுகாப்பானது என்று அறிவிக்கும் வரை பகுதிக்குத் திரும்பாதீர்கள். மேலும் சரிவுகள் சாத்தியம்।' },
+            te: { title: 'చాలా త్వరగా తిరిగి రావద్దు', content: 'అధికారులు తనిఖీ చేసి సురక్షితంగా ప్రకటించే వరకు ప్రాంతానికి తిరిగి రావద్దు. మరిన్ని జారడం సాధ్యం।' },
+            bn: { title: 'খুব শীঘ্রই ফিরবেন না', content: 'কর্তৃপক্ষ পরিদর্শন এবং নিরাপদ ঘোষণা না করা পর্যন্ত এলাকায় ফিরবেন না। আরও ধস সম্ভব।' },
+            kn: { title: 'ಬೇಗನೆ ಹಿಂತಿರುಗಬೇಡಿ', content: 'ಅಧಿಕಾರಿಗಳು ತನಿಖೆ ಮಾಡಿ ಸುರಕ್ಷಿತವೆಂದು ಘೋಷಿಸುವವರೆಗೆ ಪ್ರದೇಶಕ್ಕೆ ಹಿಂತಿರುಗಬೇಡಿ. ಹೆಚ್ಚಿನ ಕುಸಿತಗಳು ಸಾಧ್ಯ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Build on Steep Slopes', content: 'Don\'t construct buildings on steep slopes or near cliff edges without proper assessment.', type: 'dont',
+          translations: {
+            hi: { title: 'खड़ी ढलानों पर निर्माण न करें', content: 'उचित मूल्यांकन के बिना खड़ी ढलानों या चट्टान किनारों के पास इमारतों का निर्माण न करें।' },
+            ta: { title: 'செங்குத்தான சரிவுகளில் கட்டடம் கட்டாதீர்கள்', content: 'சரியான மதிப்பீடு இல்லாமல் செங்குத்தான சரிவுகள் அல்லது குன்றின் விளிம்புகளுக்கு அருகில் கட்டடங்களைக் கட்டாதீர்கள்।' },
+            te: { title: 'నిటారుగా ఉన్న వాలులపై నిర్మించవద్దు', content: 'సరైన అంచనా లేకుండా నిటారుగా ఉన్న వాలులపై లేదా కొండ అంచుల దగ్గర భవనాలను నిర్మించవద్దు।' },
+            bn: { title: 'খাড়া ঢালে নির্মাণ করবেন না', content: 'সঠিক মূল্যায়ন ছাড়া খাড়া ঢালে বা পাহাড়ের প্রান্তের কাছে ভবন নির্মাণ করবেন না।' },
+            kn: { title: 'ಕಡಿದಾದ ಇಳಿಜಾರುಗಳಲ್ಲಿ ನಿರ್ಮಿಸಬೇಡಿ', content: 'ಸರಿಯಾದ ಮೌಲ್ಯಮಾಪನವಿಲ್ಲದೆ ಕಡಿದಾದ ಇಳಿಜಾರುಗಳಲ್ಲಿ ಅಥವಾ ಬಂಡೆಯ ಅಂಚುಗಳ ಹತ್ತಿರ ಕಟ್ಟಡಗಳನ್ನು ನಿರ್ಮಿಸಬೇಡಿ।' },
+          }
+        },
+      ],
+    },
+    {
+      disaster: DisasterType.FOREST_FIRE,
+      label: 'Forest Fire Safety',
+      translations: {
+        hi: 'वन आग सुरक्षा',
+        ta: 'காட்டுத் தீ பாதுகாப்பு',
+        te: 'అటవీ అగ్ని భద్రత',
+        bn: 'বন আগুন নিরাপত্তা',
+        kn: 'ಅರಣ್ಯ ಬೆಂಕಿ ಸುರಕ್ಷತೆ',
+      },
+      icon: 'leaf',
+      color: '#FF9500',
+      tips: [
+        { id: '1', title: 'Evacuate Early', content: 'Evacuate as soon as wildfire warning issued. Don\'t wait until fire is visible.', type: 'do',
+          translations: {
+            hi: { title: 'जल्दी निकल जाएं', content: 'जंगल की आग की चेतावनी जारी होते ही निकल जाएं। आग दिखाई देने तक प्रतीक्षा न करें।' },
+            ta: { title: 'விரைவில் வெளியேறுங்கள்', content: 'காட்டுத் தீ எச்சரிக்கை வெளியிடப்பட்டவுடன் வெளியேறுங்கள். தீ தெரியும் வரை காத்திருக்காதீர்கள்।' },
+            te: { title: 'త్వరగా ఖాళీ చేయండి', content: 'అడవి మంట హెచ్చరిక జారీ అయిన వెంటనే ఖాళీ చేయండి. మంట కనిపించే వరకు వేచి ఉండవద్దు।' },
+            bn: { title: 'তাড়াতাড়ি সরিয়ে নিন', content: 'দাবানল সতর্কতা জারি হওয়ার সাথে সাথে সরিয়ে নিন। আগুন দৃশ্যমান হওয়া পর্যন্ত অপেক্ষা করবেন না।' },
+            kn: { title: 'ಬೇಗನೆ ಖಾಲಿ ಮಾಡಿ', content: 'ಕಾಡ್ಗಿಚ್ಚು ಎಚ್ಚರಿಕೆ ನೀಡಿದ ತಕ್ಷಣ ಖಾಲಿ ಮಾಡಿ. ಬೆಂಕಿ ಗೋಚರಿಸುವವರೆಗೆ ಕಾಯಬೇಡಿ।' },
+          }
+        },
+        { id: '2', title: 'Close All Windows', content: 'Close all windows, doors, vents before evacuating to prevent embers entering home.', type: 'do',
+          translations: {
+            hi: { title: 'सभी खिड़कियां बंद करें', content: 'निकलने से पहले सभी खिड़कियां, दरवाजे, वेंट बंद करें ताकि अंगार घर में प्रवेश न करें।' },
+            ta: { title: 'அனைத்து ஜன்னல்களையும் மூடுங்கள்', content: 'வெளியேறுவதற்கு முன் அனைத்து ஜன்னல்கள், கதவுகள், காற்றுத் துவாரங்களையும் மூடி வீட்டில் தணல் நுழைவதைத் தடுக்கவும்।' },
+            te: { title: 'అన్ని కిటికీలు మూసేయండి', content: 'ఖాళీ చేయడానికి ముందు అన్ని కిటికీలు, తలుపులు, వెంట్లను మూసేయండి తద్వారా నిప్పుల రవాణా ఇంట్లోకి రాకుండా నిరోధించండి।' },
+            bn: { title: 'সমস্ত জানালা বন্ধ করুন', content: 'সরিয়ে নেওয়ার আগে সমস্ত জানালা, দরজা, ভেন্ট বন্ধ করুন যাতে অঙ্গার বাড়িতে প্রবেশ না করে।' },
+            kn: { title: 'ಎಲ್ಲಾ ಕಿಟಕಿಗಳನ್ನು ಮುಚ್ಚಿ', content: 'ಖಾಲಿ ಮಾಡುವ ಮೊದಲು ಎಲ್ಲಾ ಕಿಟಕಿಗಳು, ಬಾಗಿಲುಗಳು, ವಾಯುದ್ವಾರಗಳನ್ನು ಮುಚ್ಚಿ ಕೆಂಡಗಳು ಮನೆಗೆ ಪ್ರವೇಶಿಸುವುದನ್ನು ತಡೆಯಿರಿ।' },
+          }
+        },
+        { id: '3', title: 'Wear Protective Clothing', content: 'Wear long sleeves, pants, sturdy shoes. Cover mouth with wet cloth against smoke.', type: 'do',
+          translations: {
+            hi: { title: 'सुरक्षात्मक कपड़े पहनें', content: 'लंबी आस्तीन, पैंट, मजबूत जूते पहनें। धुएं से बचाव के लिए मुंह को गीले कपड़े से ढकें।' },
+            ta: { title: 'பாதுகாப்பு உடைகளை அணியுங்கள்', content: 'நீண்ட சட்டைகள், பேண்ட், உறுதியான காலணிகள் அணியுங்கள். புகைக்கு எதிராக வாயை ஈரமான துணியால் மூடுங்கள்।' },
+            te: { title: 'రక్షణ దుస్తులను ధరించండి', content: 'పొడవాటి చేతులు, ప్యాంట్లు, దృఢమైన బూట్లు ధరించండి. పొగకు వ్యతిరేకంగా నోటిని తడి గుడ్డతో కప్పండి।' },
+            bn: { title: 'সুরক্ষামূলক পোশাক পরুন', content: 'লম্বা হাতা, প্যান্ট, মজবুত জুতা পরুন। ধোঁয়ার বিরুদ্ধে ভেজা কাপড় দিয়ে মুখ ঢেকে রাখুন।' },
+            kn: { title: 'ರಕ್ಷಣಾ ಬಟ್ಟೆಗಳನ್ನು ಧರಿಸಿ', content: 'ಉದ್ದನೆಯ ತೋಳುಗಳು, ಪ್ಯಾಂಟ್‌ಗಳು, ಗಟ್ಟಿಯಾದ ಬೂಟುಗಳನ್ನು ಧರಿಸಿ. ಹೊಗೆಯ ವಿರುದ್ಧ ಬಾಯಿಯನ್ನು ತೇವದ ಬಟ್ಟೆಯಿಂದ ಮುಚ್ಚಿ।' },
+          }
+        },
+        { id: '4', title: 'Know Multiple Escape Routes', content: 'Plan and know multiple escape routes. Fire can block main roads quickly.', type: 'do',
+          translations: {
+            hi: { title: 'कई निकास मार्ग जानें', content: 'कई निकास मार्गों की योजना बनाएं और जानें। आग मुख्य सड़कों को जल्दी अवरुद्ध कर सकती है।' },
+            ta: { title: 'பல தப்பிக்கும் வழிகளை அறியுங்கள்', content: 'பல தப்பிக்கும் வழிகளைத் திட்டமிட்டு அறிந்திருங்கள். தீ முக்கிய சாலைகளை விரைவாக தடுக்கலாம்।' },
+            te: { title: 'అనేక తప్పించుకునే మార్గాలను తెలుసుకోండి', content: 'అనేక తప్పించుకునే మార్గాలను ప్లాన్ చేయండి మరియు తెలుసుకోండి. మంట ప్రధాన రహదారులను త్వరగా నిరోధించవచ్చు।' },
+            bn: { title: 'একাধিক পালানোর পথ জানুন', content: 'একাধিক পালানোর পথ পরিকল্পনা করুন এবং জানুন। আগুন দ্রুত মূল রাস্তা অবরুদ্ধ করতে পারে।' },
+            kn: { title: 'ಹಲವು ತಪ್ಪಿಸಿಕೊಳ್ಳುವ ಮಾರ್ಗಗಳನ್ನು ತಿಳಿದುಕೊಳ್ಳಿ', content: 'ಹಲವು ತಪ್ಪಿಸಿಕೊಳ್ಳುವ ಮಾರ್ಗಗಳನ್ನು ಯೋಜಿಸಿ ಮತ್ತು ತಿಳಿದುಕೊಳ್ಳಿ. ಬೆಂಕಿ ಮುಖ್ಯ ರಸ್ತೆಗಳನ್ನು ತ್ವರಿತವಾಗಿ ನಿರ್ಬಂಧಿಸಬಹುದು।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Try to Fight Fire', content: 'Don\'t try to fight wildfire yourself. They spread extremely fast, evacuate immediately.', type: 'dont',
+          translations: {
+            hi: { title: 'आग से लड़ने की कोशिश न करें', content: 'जंगल की आग से खुद लड़ने की कोशिश न करें। वे बेहद तेजी से फैलती हैं, तुरंत निकल जाएं।' },
+            ta: { title: 'தீயுடன் போராட முயற்சிக்காதீர்கள்', content: 'காட்டுத் தீயுடன் நீங்களே போராட முயற்சிக்காதீர்கள். அவை மிக வேகமாக பரவுகின்றன, உடனடியாக வெளியேறுங்கள்।' },
+            te: { title: 'మంటలతో పోరాడటానికి ప్రయత్నించవద్దు', content: 'అడవి మంటతో మీరే పోరాడటానికి ప్రయత్నించవద్దు. అవి చాలా వేగంగా వ్యాప్తి చెందుతాయి, వెంటనే ఖాళీ చేయండి।' },
+            bn: { title: 'আগুনের সাথে লড়াই করার চেষ্টা করবেন না', content: 'দাবানলের সাথে নিজে লড়াই করার চেষ্টা করবেন না। এগুলি অত্যন্ত দ্রুত ছড়িয়ে পড়ে, অবিলম্বে সরিয়ে নিন।' },
+            kn: { title: 'ಬೆಂಕಿಯೊಂದಿಗೆ ಹೋರಾಡಲು ಪ್ರಯತ್ನಿಸಬೇಡಿ', content: 'ಕಾಡ್ಗಿಚ್ಚಿನೊಂದಿಗೆ ನೀವೇ ಹೋರಾಡಲು ಪ್ರಯತ್ನಿಸಬೇಡಿ. ಅವು ಅತ್ಯಂತ ವೇಗವಾಗಿ ಹರಡುತ್ತವೆ, ತಕ್ಷಣ ಖಾಲಿ ಮಾಡಿ।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Hide in Buildings', content: 'Don\'t hide inside buildings if fire approaching. Evacuate to clear areas away from fire.', type: 'dont',
+          translations: {
+            hi: { title: 'इमारतों में न छिपें', content: 'यदि आग आ रही हो तो इमारतों के अंदर न छिपें। आग से दूर स्पष्ट क्षेत्रों में निकल जाएं।' },
+            ta: { title: 'கட்டடங்களில் ஒளிந்துகொள்ளாதீர்கள்', content: 'தீ நெருங்கினால் கட்டடங்களுக்குள் ஒளிந்துகொள்ளாதீர்கள். தீயிலிருந்து விலகி தெளிவான பகுதிகளுக்கு வெளியேறுங்கள்।' },
+            te: { title: 'భవనాల్లో దాక్కోవద్దు', content: 'మంట సమీపిస్తుంటే భవనాల లోపల దాక్కోవద్దు. మంట నుండి దూరంగా స్పష్టమైన ప్రాంతాలకు ఖాళీ చేయండి।' },
+            bn: { title: 'ভবনগুলিতে লুকাবেন না', content: 'আগুন আসছে যদি ভবনগুলির ভিতরে লুকাবেন না। আগুন থেকে দূরে পরিষ্কার এলাকায় সরিয়ে নিন।' },
+            kn: { title: 'ಕಟ್ಟಡಗಳಲ್ಲಿ ಅಡಗಿಕೊಳ್ಳಬೇಡಿ', content: 'ಬೆಂಕಿ ಸಮೀಪಿಸುತ್ತಿದ್ದರೆ ಕಟ್ಟಡಗಳ ಒಳಗೆ ಅಡಗಿಕೊಳ್ಳಬೇಡಿ. ಬೆಂಕಿಯಿಂದ ದೂರವಿರುವ ಸ್ಪಷ್ಟ ಪ್ರದೇಶಗಳಿಗೆ ಖಾಲಿ ಮಾಡಿ।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Return During Fire', content: 'Don\'t return while fire still burning. Hot spots and hidden dangers remain.', type: 'dont',
+          translations: {
+            hi: { title: 'आग के दौरान वापस न लौटें', content: 'जब तक आग जल रही हो तब तक वापस न लौटें। गर्म स्थान और छिपे खतरे बने रहते हैं।' },
+            ta: { title: 'தீ எரியும்போது திரும்பாதீர்கள்', content: 'தீ இன்னும் எரியும்போது திரும்பாதீர்கள். சூடான இடங்கள் மற்றும் மறைந்த ஆபத்துகள் உள்ளன।' },
+            te: { title: 'మంట కాలుతున్నప్పుడు తిరిగి రావద్దు', content: 'మంట ఇంకా కాలుతున్నప్పుడు తిరిగి రావద్దు. వేడి ప్రదేశాలు మరియు దాగి ఉన్న ప్రమాదాలు ఉంటాయి।' },
+            bn: { title: 'আগুনের সময় ফিরবেন না', content: 'আগুন জ্বলার সময় ফিরবেন না। গরম স্থান এবং লুকানো বিপদ থেকে যায়।' },
+            kn: { title: 'ಬೆಂಕಿ ಸಮಯದಲ್ಲಿ ಹಿಂತಿರುಗಬೇಡಿ', content: 'ಬೆಂಕಿ ಇನ್ನೂ ಉರಿಯುತ್ತಿರುವಾಗ ಹಿಂತಿರುಗಬೇಡಿ. ಬಿಸಿ ಸ್ಥಳಗಳು ಮತ್ತು ಅಡಗಿರುವ ಅಪಾಯಗಳು ಉಳಿಯುತ್ತವೆ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Start Fires Outdoors', content: 'Don\'t start campfires, burn debris during dry season. Most wildfires are human-caused.', type: 'dont',
+          translations: {
+            hi: { title: 'बाहर आग न जलाएं', content: 'शुष्क मौसम के दौरान शिविर की आग न जलाएं, मलबा न जलाएं। अधिकांश जंगल की आग मानव-कारित होती है।' },
+            ta: { title: 'வெளியில் தீ மூட்டாதீர்கள்', content: 'உலர் பருவத்தில் முகாம் நெருப்பு மூட்டாதீர்கள், குப்பைகளை எரிக்காதீர்கள். பெரும்பாலான காட்டுத் தீ மனிதனால் ஏற்படுகிறது।' },
+            te: { title: 'బయట మంటలు రాజబెట్టవద్దు', content: 'పొడి కాలంలో క్యాంప్‌ఫైర్లు రాజబెట్టవద్దు, శిథిలాలను కాల్చవద్దు. చాలా అడవి మంటలు మానవ-కారణమైనవి।' },
+            bn: { title: 'বাইরে আগুন শুরু করবেন না', content: 'শুষ্ক মৌসুমে ক্যাম্পফায়ার শুরু করবেন না, ধ্বংসাবশেষ পোড়াবেন না। বেশিরভাগ দাবানল মানুষের কারণে হয়।' },
+            kn: { title: 'ಹೊರಾಂಗಣದಲ್ಲಿ ಬೆಂಕಿ ಹಚ್ಚಬೇಡಿ', content: 'ಒಣ ಋತುವಿನಲ್ಲಿ ಕ್ಯಾಂಪ್‌ಫೈರ್‌ಗಳನ್ನು ಪ್ರಾರಂಭಿಸಬೇಡಿ, ಭಗ್ನಾವಶೇಷಗಳನ್ನು ಸುಡಬೇಡಿ. ಹೆಚ್ಚಿನ ಕಾಡ್ಗಿಚ್ಚುಗಳು ಮಾನವ-ಉಂಟಾದವು।' },
+          }
+        },
+      ],
+    },
+    {
+      disaster: DisasterType.CHEMICAL_EMERGENCY,
+      label: 'Chemical Emergency',
+      translations: {
+        hi: 'रासायनिक आपातकाल',
+        ta: 'இரசாயன அவசரநிலை',
+        te: 'రసాయన అత్యవసర పరిస్థితి',
+        bn: 'রাসায়নিক জরুরী অবস্থা',
+        kn: 'ರಾಸಾಯನಿಕ ತುರ್ತುಸ್ಥಿತಿ',
+      },
+      icon: 'flask',
+      color: '#34C759',
+      tips: [
+        { id: '1', title: 'Move Away from Source', content: 'Move away immediately from spill or fumes. Go upwind, uphill, upstream.', type: 'do',
+          translations: {
+            hi: { title: 'स्रोत से दूर हटें', content: 'फैलाव या धुएं से तुरंत दूर हटें। हवा की दिशा में, ऊपर की ओर, धारा के ऊपर जाएं।' },
+            ta: { title: 'மூலத்திலிருந்து விலகிச் செல்லுங்கள்', content: 'கசிவு அல்லது புகையிலிருந்து உடனடியாக விலகிச் செல்லுங்கள். காற்றுக்கு எதிராக, மேலே, மேல்நோக்கி செல்லுங்கள்।' },
+            te: { title: 'మూలం నుండి దూరంగా వెళ్లండి', content: 'చిందు లేదా పొగ నుండి వెంటనే దూరంగా వెళ్లండి. గాలికి ఎదురుగా, పైకి, పైన వెళ్లండి।' },
+            bn: { title: 'উৎস থেকে দূরে সরে যান', content: 'ছিটকে পড়া বা ধোঁয়া থেকে অবিলম্বে দূরে সরে যান। বাতাসের দিকে, উপরে, উজানে যান।' },
+            kn: { title: 'ಮೂಲದಿಂದ ದೂರ ಸರಿಯಿರಿ', content: 'ಸೋರಿಕೆ ಅಥವಾ ಹೊಗೆಯಿಂದ ತಕ್ಷಣ ದೂರ ಸರಿಯಿರಿ. ಗಾಳಿಯ ವಿರುದ್ಧ, ಮೇಲೆ, ಮೇಲ್ಭಾಗಕ್ಕೆ ಹೋಗಿ।' },
+          }
+        },
+        { id: '2', title: 'Call Emergency Services', content: 'Call 112 immediately. Report type of chemical if known and exact location.', type: 'do',
+          translations: {
+            hi: { title: 'आपातकालीन सेवाओं को कॉल करें', content: 'तुरंत 112 पर कॉल करें। यदि पता हो तो रसायन का प्रकार और सटीक स्थान बताएं।' },
+            ta: { title: 'அவசர சேவைகளை அழைக்கவும்', content: 'உடனடியாக 112 ஐ அழைக்கவும். தெரிந்தால் இரசாயனத்தின் வகை மற்றும் சரியான இடத்தைப் புகாரளிக்கவும்।' },
+            te: { title: 'అత్యవసర సేవలకు కాల్ చేయండి', content: 'వెంటనే 112కి కాల్ చేయండి. తెలిసితే రసాయన రకం మరియు ఖచ్చితమైన స్థానాన్ని నివేదించండి।' },
+            bn: { title: 'জরুরী পরিষেবা কল করুন', content: 'অবিলম্বে 112 কল করুন। জানা থাকলে রাসায়নিকের ধরন এবং সঠিক অবস্থান রিপোর্ট করুন।' },
+            kn: { title: 'ತುರ್ತು ಸೇವೆಗಳಿಗೆ ಕರೆ ಮಾಡಿ', content: 'ತಕ್ಷಣ 112 ಗೆ ಕರೆ ಮಾಡಿ. ತಿಳಿದಿದ್ದರೆ ರಾಸಾಯನಿಕದ ಪ್ರಕಾರ ಮತ್ತು ನಿಖರ ಸ್ಥಳವನ್ನು ವರದಿ ಮಾಡಿ।' },
+          }
+        },
+        { id: '3', title: 'Remove Contaminated Clothing', content: 'Remove contaminated clothing quickly. Wash exposed skin with soap and water.', type: 'do',
+          translations: {
+            hi: { title: 'दूषित कपड़े उतारें', content: 'दूषित कपड़े जल्दी उतारें। उजागर त्वचा को साबुन और पानी से धोएं।' },
+            ta: { title: 'மாசுபட்ட உடைகளை அகற்றவும்', content: 'மாசுபட்ட உடைகளை விரைவாக அகற்றவும். வெளிப்படும் தோலை சோப்பு மற்றும் தண்ணீரால் கழுவவும்।' },
+            te: { title: 'కలుషితమైన దుస్తులను తొలగించండి', content: 'కలుషితమైన దుస్తులను త్వరగా తొలగించండి. బహిర్గతమైన చర్మాన్ని సబ్బు మరియు నీటితో కడగండి।' },
+            bn: { title: 'দূষিত পোশাক সরান', content: 'দূষিত পোশাক দ্রুত সরান। উন্মুক্ত ত্বক সাবান এবং জল দিয়ে ধুয়ে ফেলুন।' },
+            kn: { title: 'ಕಲುಷಿತ ಬಟ್ಟೆಗಳನ್ನು ತೆಗೆದುಹಾಕಿ', content: 'ಕಲುಷಿತ ಬಟ್ಟೆಗಳನ್ನು ತ್ವರಿತವಾಗಿ ತೆಗೆದುಹಾಕಿ. ಬಹಿರಂಗ ಚರ್ಮವನ್ನು ಸೋಪ್ ಮತ್ತು ನೀರಿನಿಂದ ತೊಳೆಯಿರಿ।' },
+          }
+        },
+        { id: '4', title: 'Seek Medical Help', content: 'Seek immediate medical attention even if no symptoms. Some effects are delayed.', type: 'do',
+          translations: {
+            hi: { title: 'चिकित्सा सहायता लें', content: 'भले ही कोई लक्षण न हों, तुरंत चिकित्सा सहायता लें। कुछ प्रभाव विलंबित होते हैं।' },
+            ta: { title: 'மருத்துவ உதவி பெறுங்கள்', content: 'அறிகுறிகள் இல்லாவிட்டாலும் உடனடியாக மருத்துவ கவனிப்பைப் பெறுங்கள். சில விளைவுகள் தாமதமாகும்।' },
+            te: { title: 'వైద్య సహాయం పొందండి', content: 'లక్షణాలు లేకపోయినా వెంటనే వైద్య సహాయం పొందండి. కొన్ని ప్రభావాలు ఆలస్యం అవుతాయి।' },
+            bn: { title: 'চিকিৎসা সাহায্য নিন', content: 'কোন লক্ষণ না থাকলেও অবিলম্বে চিকিৎসা সাহায্য নিন। কিছু প্রভাব বিলম্বিত।' },
+            kn: { title: 'ವೈದ್ಯಕೀಯ ಸಹಾಯ ಪಡೆಯಿರಿ', content: 'ರೋಗಲಕ್ಷಣಗಳಿಲ್ಲದಿದ್ದರೂ ತಕ್ಷಣ ವೈದ್ಯಕೀಯ ಸಹಾಯ ಪಡೆಯಿರಿ. ಕೆಲವು ಪರಿಣಾಮಗಳು ವಿಳಂಬವಾಗುತ್ತವೆ।' },
+          }
+        },
+        { id: '5', title: 'Don\'t Touch or Inhale', content: 'Don\'t touch spilled chemicals or breathe fumes. Even small exposure can be harmful.', type: 'dont',
+          translations: {
+            hi: { title: 'छूएं या सांस न लें', content: 'फैले रसायनों को न छुएं या धुएं में सांस न लें। छोटा संपर्क भी हानिकारक हो सकता है।' },
+            ta: { title: 'தொடாதீர்கள் அல்லது சுவாசிக்காதீர்கள்', content: 'கசிந்த இரசாயனங்களைத் தொடாதீர்கள் அல்லது புகையை சுவாசிக்காதீர்கள். சிறிய வெளிப்பாடு கூட தீங்கு விளைவிக்கும்।' },
+            te: { title: 'తాకవద్దు లేదా పీల్చవద్దు', content: 'చిందిన రసాయనాలను తాకవద్దు లేదా పొగను పీల్చవద్దు. చిన్న బహిర్గతం కూడా హానికరం కావచ్చు।' },
+            bn: { title: 'স্পর্শ বা শ্বাস নেবেন না', content: 'ছিটকে যাওয়া রাসায়নিক স্পর্শ করবেন না বা ধোঁয়া শ্বাস নেবেন না। এমনকি ছোট এক্সপোজার ক্ষতিকারক হতে পারে।' },
+            kn: { title: 'ಮುಟ್ಟಬೇಡಿ ಅಥವಾ ಉಸಿರಾಡಬೇಡಿ', content: 'ಸೋರಿಕೆಯಾದ ರಾಸಾಯನಿಕಗಳನ್ನು ಮುಟ್ಟಬೇಡಿ ಅಥವಾ ಹೊಗೆಯನ್ನು ಉಸಿರಾಡಬೇಡಿ. ಸಣ್ಣ ಒಡ್ಡುವಿಕೆ ಕೂಡ ಹಾನಿಕಾರಕವಾಗಬಹುದು।' },
+          }
+        },
+        { id: '6', title: 'Don\'t Try to Clean Up', content: 'Don\'t attempt to clean up chemical spill. Only trained professionals should do this.', type: 'dont',
+          translations: {
+            hi: { title: 'साफ करने की कोशिश न करें', content: 'रासायनिक फैलाव को साफ करने की कोशिश न करें। केवल प्रशिक्षित पेशेवर ही यह करें।' },
+            ta: { title: 'சுத்தம் செய்ய முயற்சிக்காதீர்கள்', content: 'இரசாயன கசிவை சுத்தம் செய்ய முயற்சிக்காதீர்கள். பயிற்சி பெற்ற நிபுணர்கள் மட்டுமே இதைச் செய்ய வேண்டும்।' },
+            te: { title: 'శుభ్రం చేయడానికి ప్రయత్నించవద్దు', content: 'రసాయన చిందును శుభ్రం చేయడానికి ప్రయత్నించవద్దు. శిక్షణ పొందిన నిపుణులు మాత్రమే దీన్ని చేయాలి।' },
+            bn: { title: 'পরিষ্কার করার চেষ্টা করবেন না', content: 'রাসায়নিক ছিটকে পড়া পরিষ্কার করার চেষ্টা করবেন না। শুধুমাত্র প্রশিক্ষিত পেশাদারদের এটি করা উচিত।' },
+            kn: { title: 'ಸ್ವಚ್ಛಗೊಳಿಸಲು ಪ್ರಯತ್ನಿಸಬೇಡಿ', content: 'ರಾಸಾಯನಿಕ ಸೋರಿಕೆಯನ್ನು ಸ್ವಚ್ಛಗೊಳಿಸಲು ಪ್ರಯತ್ನಿಸಬೇಡಿ. ತರಬೇತಿ ಪಡೆದ ವೃತ್ತಿಪರರು ಮಾತ್ರ ಇದನ್ನು ಮಾಡಬೇಕು।' },
+          }
+        },
+        { id: '7', title: 'Don\'t Spread Contamination', content: 'Don\'t touch face or spread chemicals to others. Isolate contaminated items.', type: 'dont',
+          translations: {
+            hi: { title: 'संदूषण न फैलाएं', content: 'चेहरे को न छुएं या दूसरों में रसायन न फैलाएं। दूषित वस्तुओं को अलग करें।' },
+            ta: { title: 'மாசுபாட்டை பரப்பாதீர்கள்', content: 'முகத்தைத் தொடாதீர்கள் அல்லது மற்றவர்களுக்கு இரசாயனங்களைப் பரப்பாதீர்கள். மாசுபட்ட பொருட்களை தனிமைப்படுத்துங்கள்।' },
+            te: { title: 'కలుషితాన్ని వ్యాప్తి చెందించవద్దు', content: 'ముఖాన్ని తాకవద్దు లేదా ఇతరులకు రసాయనాలను వ్యాప్తి చెందించవద్దు. కలుషితమైన వస్తువులను వేరు చేయండి।' },
+            bn: { title: 'দূষণ ছড়াবেন না', content: 'মুখ স্পর্শ করবেন না বা অন্যদের কাছে রাসায়নিক ছড়াবেন না। দূষিত আইটেম আলাদা করুন।' },
+            kn: { title: 'ಮಾಲಿನ್ಯವನ್ನು ಹರಡಬೇಡಿ', content: 'ಮುಖವನ್ನು ಮುಟ್ಟಬೇಡಿ ಅಥವಾ ಇತರರಿಗೆ ರಾಸಾಯನಿಕಗಳನ್ನು ಹರಡಬೇಡಿ. ಕಲುಷಿತ ವಸ್ತುಗಳನ್ನು ಪ್ರತ್ಯೇಕಿಸಿ।' },
+          }
+        },
+        { id: '8', title: 'Don\'t Use Water on All Chemicals', content: 'Don\'t pour water on all chemicals. Some react violently with water.', type: 'dont',
+          translations: {
+            hi: { title: 'सभी रसायनों पर पानी न डालें', content: 'सभी रसायनों पर पानी न डालें। कुछ पानी के साथ हिंसक रूप से प्रतिक्रिया करते हैं।' },
+            ta: { title: 'அனைத்து இரசாயனங்களிலும் தண்ணீர் பயன்படுத்தாதீர்கள்', content: 'அனைத்து இரசாயனங்களிலும் தண்ணீர் ஊற்றாதீர்கள். சில தண்ணீருடன் வன்முறையாக வினையாற்றுகின்றன।' },
+            te: { title: 'అన్ని రసాయనాలపై నీరు ఉపయోగించవద్దు', content: 'అన్ని రసాయనాలపై నీరు పోయవద్దు. కొన్ని నీటితో హింసాత్మకంగా స్పందిస్తాయి।' },
+            bn: { title: 'সমস্ত রাসায়নিকে জল ব্যবহার করবেন না', content: 'সমস্ত রাসায়নিকে জল ঢালবেন না। কিছু জলের সাথে হিংস্রভাবে প্রতিক্রিয়া করে।' },
+            kn: { title: 'ಎಲ್ಲಾ ರಾಸಾಯನಿಕಗಳ ಮೇಲೆ ನೀರು ಬಳಸಬೇಡಿ', content: 'ಎಲ್ಲಾ ರಾಸಾಯನಿಕಗಳ ಮೇಲೆ ನೀರು ಸುರಿಯಬೇಡಿ. ಕೆಲವು ನೀರಿನೊಂದಿಗೆ ಹಿಂಸಾತ್ಮಕವಾಗಿ ಪ್ರತಿಕ್ರಿಯಿಸುತ್ತವೆ।' },
+          }
         },
       ],
     },
@@ -207,46 +1092,107 @@ const SafetyTricksScreen: React.FC<SafetyTricksScreenProps> = ({ user }) => {
     setModalVisible(true);
   };
 
-  const renderTip = ({ item }: { item: SafetyTip }) => (
-    <View style={[styles.tipCard, item.type === 'do' ? styles.doCard : styles.dontCard]}>
-      <View style={styles.tipHeader}>
-        <Ionicons 
-          name={item.type === 'do' ? 'checkmark-circle' : 'close-circle'} 
-          size={24} 
-          color={item.type === 'do' ? '#34C759' : '#FF3B30'} 
-        />
-        <Text style={styles.tipTitle}>{item.title}</Text>
+  const getTranslatedTip = (item: SafetyTip) => {
+    const langCode = languages.find(l => l.name === selectedLanguage)?.code || 'en';
+    
+    // If English or no translations available, return original
+    if (langCode === 'en' || !item.translations || !item.translations[langCode]) {
+      return { title: item.title, content: item.content };
+    }
+
+    // Return translated version
+    return item.translations[langCode];
+  };
+
+  const renderTip = ({ item }: { item: SafetyTip }) => {
+    const translatedTip = getTranslatedTip(item);
+    
+    return (
+      <View style={[styles.tipCard, item.type === 'do' ? styles.doCard : styles.dontCard]}>
+        <View style={styles.tipHeader}>
+          <Ionicons 
+            name={item.type === 'do' ? 'checkmark-circle' : 'close-circle'} 
+            size={24} 
+            color={item.type === 'do' ? '#34C759' : '#FF3B30'} 
+          />
+          <Text style={styles.tipTitle}>{translatedTip.title}</Text>
+        </View>
+        <Text style={styles.tipContent}>{translatedTip.content}</Text>
       </View>
-      <Text style={styles.tipContent}>{item.content}</Text>
-    </View>
-  );
+    );
+  };
+
+  const getHeaderText = (key: 'title' | 'subtitle') => {
+    const langCode = languages.find(l => l.name === selectedLanguage)?.code || 'en';
+    const text = (safetyTranslations.commonHeaders as any)[key][langCode];
+    return text || (safetyTranslations.commonHeaders as any)[key].en;
+  };
+
+  const getTranslatedLabel = (guide: SafetyGuide) => {
+    const langCode = languages.find(l => l.name === selectedLanguage)?.code || 'en';
+    
+    // If English or no translations, return original label
+    if (langCode === 'en' || !guide.translations || !guide.translations[langCode]) {
+      return guide.label;
+    }
+
+    // Return translated label
+    return guide.translations[langCode];
+  };
+
+  // Separate Road Accident from other disasters
+  const roadAccidentGuide = safetyGuides.find(g => g.disaster === DisasterType.ROAD_ACCIDENT);
+  const otherGuides = safetyGuides.filter(g => g.disaster !== DisasterType.ROAD_ACCIDENT);
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Safety Guidelines</Text>
-        <Text style={styles.subtitle}>Learn how to stay safe during disasters</Text>
+        <Text style={styles.title}>{getHeaderText('title')}</Text>
+        <Text style={styles.subtitle}>{getHeaderText('subtitle')}</Text>
         
         {/* Language Selector */}
-        <TouchableOpacity style={styles.languageSelector}>
+        <TouchableOpacity 
+          style={styles.languageSelector}
+          onPress={() => setLanguageModalVisible(true)}
+        >
           <Ionicons name="language" size={20} color="#007AFF" />
-          <Text style={styles.languageText}>{selectedLanguage}</Text>
+          <Text style={styles.languageText}>
+            {languages.find(l => l.name === selectedLanguage)?.nativeName || selectedLanguage}
+          </Text>
           <Ionicons name="chevron-down" size={16} color="#007AFF" />
         </TouchableOpacity>
       </View>
 
       {/* Safety Guides Grid */}
       <ScrollView style={styles.scrollView}>
+        {/* Featured: Road Accident Safety - Large Card at Top */}
+        {roadAccidentGuide && (
+          <View style={styles.featuredSection}>
+            <TouchableOpacity
+              style={[styles.featuredGuideCard, { backgroundColor: roadAccidentGuide.color }]}
+              onPress={() => openGuide(roadAccidentGuide)}
+            >
+              <Ionicons name={roadAccidentGuide.icon as any} size={48} color="white" />
+              <Text style={styles.featuredGuideLabel}>{getTranslatedLabel(roadAccidentGuide)}</Text>
+              <View style={styles.featuredCardFooter}>
+                <Ionicons name="play-circle" size={18} color="white" />
+                <Text style={styles.featuredCardFooterText}>View Safety Tips</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Other Disaster Types Grid */}
         <View style={styles.guidesGrid}>
-          {safetyGuides.map((guide) => (
+          {otherGuides.map((guide) => (
             <TouchableOpacity
               key={guide.disaster}
               style={[styles.guideCard, { backgroundColor: guide.color }]}
               onPress={() => openGuide(guide)}
             >
               <Ionicons name={guide.icon as any} size={40} color="white" />
-              <Text style={styles.guideLabel}>{guide.label}</Text>
+              <Text style={styles.guideLabel}>{getTranslatedLabel(guide)}</Text>
               <View style={styles.cardFooter}>
                 <Ionicons name="play-circle" size={16} color="white" />
                 <Text style={styles.cardFooterText}>View Tips</Text>
@@ -309,7 +1255,7 @@ const SafetyTricksScreen: React.FC<SafetyTricksScreenProps> = ({ user }) => {
               <Ionicons name="close" size={24} color="#007AFF" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>
-              {selectedGuide?.label} Guidelines
+              {selectedGuide && getTranslatedLabel(selectedGuide)}
             </Text>
             <View style={styles.placeholder} />
           </View>
@@ -330,6 +1276,52 @@ const SafetyTricksScreen: React.FC<SafetyTricksScreenProps> = ({ user }) => {
               <Text style={styles.videoButtonText}>Watch Safety Video</Text>
             </TouchableOpacity>
           )}
+        </View>
+      </Modal>
+
+      {/* Language Selection Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={languageModalVisible}
+        onRequestClose={() => setLanguageModalVisible(false)}
+      >
+        <View style={styles.languageModalOverlay}>
+          <View style={styles.languageModalContainer}>
+            <View style={styles.languageModalHeader}>
+              <Text style={styles.languageModalTitle}>Select Language</Text>
+              <TouchableOpacity
+                onPress={() => setLanguageModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={24} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.languageList}>
+              {languages.map((lang) => (
+                <TouchableOpacity
+                  key={lang.code}
+                  style={[
+                    styles.languageItem,
+                    selectedLanguage === lang.name && styles.selectedLanguageItem,
+                  ]}
+                  onPress={() => {
+                    setSelectedLanguage(lang.name);
+                    setLanguageModalVisible(false);
+                  }}
+                >
+                  <View>
+                    <Text style={styles.languageItemName}>{lang.nativeName}</Text>
+                    <Text style={styles.languageItemSubtext}>{lang.name}</Text>
+                  </View>
+                  {selectedLanguage === lang.name && (
+                    <Ionicons name="checkmark-circle" size={24} color="#007AFF" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </View>
@@ -375,6 +1367,46 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  featuredSection: {
+    padding: 15,
+    paddingTop: 5,
+  },
+  featuredGuideCard: {
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 25,
+    paddingHorizontal: 20,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
+    minHeight: 140,
+  },
+  featuredGuideLabel: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 12,
+    fontSize: 20,
+    letterSpacing: 0.5,
+  },
+  featuredCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+  },
+  featuredCardFooterText: {
+    color: 'white',
+    fontSize: 14,
+    marginLeft: 6,
+    fontWeight: '600',
   },
   guidesGrid: {
     flexDirection: 'row',
@@ -523,6 +1555,54 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  languageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  languageModalContainer: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  languageModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  languageModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  languageList: {
+    maxHeight: 400,
+  },
+  languageItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectedLanguageItem: {
+    backgroundColor: '#F0F8FF',
+  },
+  languageItemName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  languageItemSubtext: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 

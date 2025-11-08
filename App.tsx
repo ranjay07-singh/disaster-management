@@ -19,12 +19,16 @@ if (__DEV__) {
 
 // Import screens
 import AuthScreen from './src/screens/AuthScreen';
+import SimpleFirebaseAuthScreen from './src/screens/SimpleFirebaseAuthScreen';
 import VictimTabs from './src/screens/victim/VictimTabs';
 import VolunteerTabs from './src/screens/volunteer/VolunteerTabs';
 import MonitoringTabs from './src/screens/monitoring/MonitoringTabs';
 
 // Import services
+import { AuthenticationService } from './src/services/AuthenticationService';
 import { AuthService } from './src/services/AuthService';
+import { UnifiedAuthService } from './src/services/UnifiedAuthService';
+import { InitializationService } from './src/services/InitializationService';
 import { User, UserRole } from './src/types/User';
 
 // Global error handler to prevent red screen errors
@@ -55,10 +59,30 @@ export default function App() {
 
   const checkAuthStatus = async () => {
     try {
-      const currentUser = await AuthService.getCurrentUser();
-      setUser(currentUser);
+      // Initialize system users and configuration
+      if (__DEV__) {
+        await InitializationService.initializeDefaultUsers();
+      }
+
+      // Initialize UnifiedAuthService first
+      await UnifiedAuthService.initialize();
+      console.log('🔧 UnifiedAuthService initialized');
+
+      // Check if user is authenticated through UnifiedAuthService
+      if (UnifiedAuthService.isAuthenticated()) {
+        const currentUser = UnifiedAuthService.getCurrentUser();
+        if (currentUser) {
+          console.log('✅ Found authenticated user:', currentUser.name);
+          setUser(currentUser);
+          return;
+        }
+      }
+
+      // No auto-login in production - user must authenticate
+
+      console.log('No authenticated user found, showing login screen');
     } catch (error) {
-      console.log('No authenticated user');
+      console.log('Authentication check failed:', error);
     } finally {
       setIsLoading(false);
     }
@@ -68,9 +92,22 @@ export default function App() {
     setUser(userData);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setUser(null);
-    AuthService.logout();
+    try {
+      // Use UnifiedAuthService for logout (handles both Firebase and API)
+      await UnifiedAuthService.logout();
+      console.log('✅ User logged out successfully');
+    } catch (error) {
+      console.log('Logout error:', error);
+      // Fallback to individual services
+      try {
+        await AuthService.logout();
+        await AuthenticationService.logout();
+      } catch (fallbackError) {
+        console.log('Fallback logout completed');
+      }
+    }
   };
 
   if (isLoading) {
@@ -83,7 +120,8 @@ export default function App() {
 
   const renderAppForUserRole = () => {
     if (!user) {
-      return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+      // Use SimpleFirebaseAuthScreen for reliable Firebase auth
+      return <SimpleFirebaseAuthScreen onAuthSuccess={handleAuthSuccess} />;
     }
 
     switch (user.role) {

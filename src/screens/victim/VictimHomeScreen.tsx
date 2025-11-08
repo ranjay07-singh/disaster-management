@@ -6,11 +6,16 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SimpleMap, SimpleMarker } from '../../components/SimpleMap';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from '../../types/User';
+import { useNavigation } from '@react-navigation/native';
+import { DisasterAlertService, DisasterAlert } from '../../services/DisasterAlertService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,13 +24,33 @@ interface VictimHomeScreenProps {
 }
 
 const VictimHomeScreen: React.FC<VictimHomeScreenProps> = ({ user }) => {
+  const navigation = useNavigation();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [address, setAddress] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] = useState<DisasterAlert[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [userCity, setUserCity] = useState<string>('');
+  const [userState, setUserState] = useState<string>('');
 
   useEffect(() => {
     getCurrentLocation();
   }, []);
+
+  useEffect(() => {
+    // Fetch alerts when location is available
+    if (location) {
+      fetchDisasterAlerts();
+      
+      // Auto-refresh alerts every 5 minutes
+      const interval = setInterval(() => {
+        fetchDisasterAlerts(true);
+      }, 5 * 60 * 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [location]);
 
   const getCurrentLocation = async () => {
     try {
@@ -53,6 +78,8 @@ const VictimHomeScreen: React.FC<VictimHomeScreenProps> = ({ user }) => {
       if (reverseGeocode.length > 0) {
         const { street, city, region, country } = reverseGeocode[0];
         setAddress(`${street || ''}, ${city || ''}, ${region || ''}, ${country || ''}`);
+        setUserCity(city || '');
+        setUserState(region || '');
       }
     } catch (error) {
       console.error('Error getting location:', error);
@@ -62,6 +89,43 @@ const VictimHomeScreen: React.FC<VictimHomeScreenProps> = ({ user }) => {
     }
   };
 
+  const fetchDisasterAlerts = async (silent: boolean = false) => {
+    if (!location) return;
+    
+    try {
+      if (!silent) setLoadingAlerts(true);
+      
+      console.log('📍 Fetching disaster alerts for location...');
+      
+      const allAlerts = await DisasterAlertService.getAllAlerts(
+        location.coords.latitude,
+        location.coords.longitude,
+        300 // 300km radius
+      );
+      
+      // Filter to show only nearby and relevant alerts (within 200km)
+      const nearbyAlerts = allAlerts.filter(alert => alert.distance! <= 200);
+      
+      setAlerts(nearbyAlerts.slice(0, 5)); // Show max 5 alerts
+      
+      console.log(`✅ Found ${nearbyAlerts.length} alerts nearby`);
+      
+    } catch (error) {
+      console.error('❌ Error fetching disaster alerts:', error);
+    } finally {
+      if (!silent) setLoadingAlerts(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      getCurrentLocation(),
+      fetchDisasterAlerts(),
+    ]);
+    setRefreshing(false);
+  };
+
   const handleEmergencyHelp = () => {
     // Navigate to Need Help tab
     Alert.alert(
@@ -69,10 +133,13 @@ const VictimHomeScreen: React.FC<VictimHomeScreenProps> = ({ user }) => {
       'You will be redirected to the Need Help section to request emergency assistance.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue', onPress: () => {
-          // This would trigger navigation to Need Help tab
-          console.log('Navigate to Need Help tab');
-        }},
+        { 
+          text: 'Continue', 
+          onPress: () => {
+            // Navigate to Need Help tab
+            navigation.navigate('Need Help' as never);
+          }
+        },
       ]
     );
   };
@@ -86,7 +153,116 @@ const VictimHomeScreen: React.FC<VictimHomeScreenProps> = ({ user }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      {/* Disaster Alerts Section */}
+      {loadingAlerts ? (
+        <View style={styles.alertsLoadingContainer}>
+          <ActivityIndicator size="small" color="#007AFF" />
+          <Text style={styles.alertsLoadingText}>Loading disaster alerts...</Text>
+        </View>
+      ) : alerts.length > 0 ? (
+        <View style={styles.alertsSection}>
+          <View style={styles.alertsHeader}>
+            <Ionicons name="warning" size={24} color="#FF3B30" />
+            <Text style={styles.alertsHeaderText}>Active Disaster Alerts</Text>
+            <TouchableOpacity onPress={() => fetchDisasterAlerts()}>
+              <Ionicons name="refresh" size={20} color="#007AFF" />
+            </TouchableOpacity>
+          </View>
+          
+          {alerts.map((alert, index) => (
+            <View 
+              key={alert.id} 
+              style={[
+                styles.alertCard,
+                { borderLeftColor: DisasterAlertService.getSeverityColor(alert.severity) }
+              ]}
+            >
+              <View style={styles.alertCardHeader}>
+                <View style={styles.alertCardTitle}>
+                  <Text style={styles.alertIcon}>
+                    {DisasterAlertService.getCategoryIcon(alert.category)}
+                  </Text>
+                  <View style={styles.alertCardTitleText}>
+                    <Text style={styles.alertCategory}>{alert.category}</Text>
+                    <View style={[
+                      styles.severityBadge,
+                      { backgroundColor: DisasterAlertService.getSeverityColor(alert.severity) }
+                    ]}>
+                      <Text style={styles.severityText}>{alert.severity?.toUpperCase() || 'UNKNOWN'}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              
+              <Text style={styles.alertTitle} numberOfLines={2}>
+                {alert.title}
+              </Text>
+              
+              <View style={styles.alertMeta}>
+                <View style={styles.alertMetaItem}>
+                  <Ionicons name="location-outline" size={14} color="#666" />
+                  <Text style={styles.alertMetaText}>
+                    {DisasterAlertService.formatDistance(alert.distance!)}
+                  </Text>
+                </View>
+                <View style={styles.alertMetaItem}>
+                  <Ionicons name="time-outline" size={14} color="#666" />
+                  <Text style={styles.alertMetaText}>
+                    {DisasterAlertService.getTimeAgo(alert.startTime)}
+                  </Text>
+                </View>
+              </View>
+              
+              {alert.location.address && (
+                <Text style={styles.alertLocation} numberOfLines={1}>
+                  📍 {alert.location.address}
+                </Text>
+              )}
+              
+              <View style={styles.alertFooter}>
+                <Text style={styles.alertSource}>Source: {alert.source}</Text>
+                <TouchableOpacity 
+                  style={styles.alertDetailsButton}
+                  onPress={() => {
+                    Alert.alert(
+                      `${alert.category} Alert`,
+                      `${alert.description}\n\nLocation: ${alert.location.address || 'Unknown'}\nDistance: ${DisasterAlertService.formatDistance(alert.distance!)}\nTime: ${DisasterAlertService.getTimeAgo(alert.startTime)}\nSeverity: ${alert.severity?.toUpperCase() || 'Unknown'}\nSource: ${alert.source}`,
+                      [{ text: 'OK' }]
+                    );
+                  }}
+                >
+                  <Text style={styles.alertDetailsButtonText}>Details</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#007AFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+          
+          {alerts.length >= 5 && (
+            <Text style={styles.moreAlertsText}>
+              Showing {alerts.length} most critical alerts nearby
+            </Text>
+          )}
+        </View>
+      ) : (
+        <View style={styles.noAlertsContainer}>
+          <Ionicons name="shield-checkmark" size={48} color="#4CAF50" />
+          <Text style={styles.noAlertsTitle}>All Clear</Text>
+          <Text style={styles.noAlertsText}>
+            No active disaster alerts in your region
+          </Text>
+          <Text style={styles.noAlertsSubtext}>
+            Last checked: {new Date().toLocaleTimeString()}
+          </Text>
+        </View>
+      )}
+
       {/* Map View */}
       <View style={styles.mapContainer}>
         {location ? (
@@ -148,7 +324,7 @@ const VictimHomeScreen: React.FC<VictimHomeScreenProps> = ({ user }) => {
           Your safety is our priority. Press the emergency help button if you need immediate assistance.
         </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -161,6 +337,195 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Disaster Alerts Styles
+  alertsLoadingContainer: {
+    backgroundColor: 'white',
+    margin: 10,
+    marginTop: 15,
+    padding: 20,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  alertsLoadingText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  alertsSection: {
+    margin: 10,
+    marginTop: 15,
+  },
+  alertsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 15,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  alertsHeaderText: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    color: '#333',
+  },
+  alertCard: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderLeftWidth: 4,
+    marginTop: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  alertCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  alertCardTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  alertIcon: {
+    fontSize: 28,
+    marginRight: 10,
+  },
+  alertCardTitleText: {
+    flex: 1,
+  },
+  alertCategory: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  severityBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  severityText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  alertTitle: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 10,
+    lineHeight: 20,
+  },
+  alertMeta: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    gap: 15,
+  },
+  alertMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  alertMetaText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
+  },
+  alertLocation: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 10,
+    fontStyle: 'italic',
+  },
+  alertFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 10,
+  },
+  alertSource: {
+    fontSize: 11,
+    color: '#999',
+  },
+  alertDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f8ff',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 5,
+  },
+  alertDetailsButtonText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  moreAlertsText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#666',
+    backgroundColor: 'white',
+    padding: 10,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  noAlertsContainer: {
+    backgroundColor: 'white',
+    margin: 10,
+    marginTop: 15,
+    padding: 30,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  noAlertsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    marginTop: 15,
+    marginBottom: 8,
+  },
+  noAlertsText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  noAlertsSubtext: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
   },
   mapContainer: {
     height: height * 0.4,

@@ -2,8 +2,6 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from '../../types/User';
-
-// Import monitoring screens
 import MonitoringDashboard from './MonitoringDashboard';
 import UserManagement from './UserManagement';
 import AnalyticsScreen from './AnalyticsScreen';
@@ -27,8 +25,6 @@ const MonitoringTabs: React.FC<MonitoringTabsProps> = ({ user, onLogout }) => {
             iconName = focused ? 'analytics' : 'analytics-outline';
           } else if (route.name === 'Users') {
             iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'Analytics') {
-            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           } else {
@@ -62,11 +58,6 @@ const MonitoringTabs: React.FC<MonitoringTabsProps> = ({ user, onLogout }) => {
         name="Users" 
         children={() => <UserManagement user={user} />}
         options={{ title: 'User Management' }}
-      />
-      <Tab.Screen 
-        name="Analytics" 
-        children={() => <AnalyticsScreen user={user} />}
-        options={{ title: 'Analytics' }}
       />
       <Tab.Screen 
         name="Profile" 

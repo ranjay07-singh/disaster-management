@@ -8,10 +8,16 @@ import {
   TextInput,
   Alert,
   Image,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { User } from '../../types/User';
 import { AuthService } from '../../services/AuthService';
+import { UserService } from '../../services/UserService';
+import { ProfileImageService } from '../../services/ProfileImageService';
+import { auth } from '../../services/firebase';
 
 interface VolunteerProfileScreenProps {
   user: User;
@@ -24,41 +30,328 @@ const VolunteerProfileScreen: React.FC<VolunteerProfileScreenProps> = ({ user, o
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [profileImageUri, setProfileImageUri] = useState<string | null>(user.profileImage || null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Request permissions for camera and gallery
+  const requestPermissions = async () => {
+    if (Platform.OS !== 'web') {
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (cameraStatus !== 'granted' || galleryStatus !== 'granted') {
+        Alert.alert(
+          'Permissions Required',
+          'Camera and gallery permissions are needed to update your profile photo.',
+          [{ text: 'OK' }]
+        );
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Handle profile photo selection
+  const handleSelectPhoto = () => {
+    Alert.alert(
+      'Update Profile Photo',
+      'Choose an option',
+      [
+        {
+          text: 'Take Photo',
+          onPress: () => handleTakePhoto(),
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => handleChooseFromGallery(),
+        },
+        {
+          text: 'Remove Photo',
+          onPress: () => handleRemovePhoto(),
+          style: 'destructive',
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Take photo with camera
+  const handleTakePhoto = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.log('Camera error:', error);
+      Alert.alert('Error', 'Failed to open camera');
+    }
+  };
+
+  // Choose photo from gallery
+  const handleChooseFromGallery = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.log('Gallery error:', error);
+      Alert.alert('Error', 'Failed to open gallery');
+    }
+  };
+
+  // Upload profile image to S3
+  const uploadProfileImage = async (imageUri: string) => {
+    setIsUploadingImage(true);
+    
+    try {
+      const validation = ProfileImageService.validateImage(imageUri);
+      if (!validation.valid) {
+        Alert.alert('Invalid Image', validation.error || 'Please select a valid image');
+        setIsUploadingImage(false);
+        return;
+      }
+
+      console.log('📤 Starting upload for volunteer user:', user.id);
+      
+      // Get Firebase ID token for authentication
+      let token: string | undefined;
+      try {
+        if (auth.currentUser) {
+          token = await auth.currentUser.getIdToken();
+          console.log('🔑 Got Firebase ID token');
+        } else {
+          console.warn('⚠️ No Firebase user logged in, uploading without token');
+        }
+      } catch (error) {
+        console.log('❌ Failed to get Firebase token:', error);
+      }
+      
+      const uploadResult = await ProfileImageService.uploadProfileImage(
+        user.id,
+        imageUri,
+        token
+      );
+
+      console.log('📊 Upload result:', uploadResult);
+
+      if (uploadResult.success && uploadResult.imageUrl) {
+        console.log('✅ Upload successful! Image URL:', uploadResult.imageUrl);
+        
+        // IMMEDIATELY display the image
+        setProfileImageUri(uploadResult.imageUrl);
+        setEditedUser({ ...editedUser, profileImage: uploadResult.imageUrl });
+        
+        // Save to Firebase (Firestore + AsyncStorage) - this persists across logins!
+        try {
+          await AuthService.updateUserProfile(user.id, {
+            profileImage: uploadResult.imageUrl,
+          });
+          
+          // Update local user object
+          user.profileImage = uploadResult.imageUrl;
+          
+          console.log('✅ Profile image saved to Firebase successfully!');
+          Alert.alert('Success', 'Profile photo updated successfully! 🎉');
+          
+        } catch (err: any) {
+          console.log('❌ Failed to save image URL to Firebase:', err?.message);
+          Alert.alert('Warning', 'Image displayed but not saved. Please click "Save Changes" to persist.');
+        }
+      } else {
+        console.log('❌ Upload failed:', uploadResult.error);
+        
+        // Check if it's an AWS credentials error
+        if (uploadResult.error?.includes('AWS Access Key') || uploadResult.error?.includes('InvalidAccessKeyId')) {
+          Alert.alert(
+            'Server Configuration Error',
+            'The server\'s AWS credentials are not configured correctly. Please contact the administrator to fix the S3 bucket configuration.\n\nError: Invalid AWS Access Key',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert('Upload Failed', uploadResult.error || 'Failed to upload image to server');
+        }
+      }
+    } catch (error) {
+      console.log('❌ Upload error:', error);
+      Alert.alert('Error', 'An error occurred while uploading the image');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Remove profile photo
+  const handleRemovePhoto = async () => {
+    Alert.alert(
+      'Remove Photo',
+      'Are you sure you want to remove your profile photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setIsUploadingImage(true);
+            try {
+              if (profileImageUri) {
+                try {
+                  await ProfileImageService.deleteProfileImage(profileImageUri);
+                } catch (err) {
+                  console.log('⚠️ Failed to delete from S3:', err);
+                }
+              }
+              
+              await AuthService.updateUserProfile(user.id, {
+                profileImage: undefined,
+              });
+
+              setProfileImageUri(null);
+              setEditedUser({ ...editedUser, profileImage: undefined });
+              user.profileImage = undefined;
+              
+              Alert.alert('Success', 'Profile photo removed');
+              
+            } catch (error) {
+              console.log('❌ Error removing photo:', error);
+              Alert.alert('Error', 'Failed to remove profile photo');
+            } finally {
+              setIsUploadingImage(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSaveProfile = async () => {
+    setIsSaving(true);
     try {
-      await AuthService.updateUserProfile(user.id, {
+      // Validate phone number
+      const phoneValidation = UserService.validatePhone(editedUser.phone);
+      if (!phoneValidation.isValid) {
+        Alert.alert('Invalid Phone', phoneValidation.message);
+        setIsSaving(false);
+        return;
+      }
+
+      // Validate name
+      const nameValidation = UserService.validateName(editedUser.name);
+      if (!nameValidation.isValid) {
+        Alert.alert('Invalid Name', nameValidation.message);
+        setIsSaving(false);
+        return;
+      }
+
+      console.log('💾 Saving volunteer profile...');
+      
+      // Build update object - ONLY include defined values (Firebase doesn't accept undefined)
+      const updateData: any = {
         name: editedUser.name,
         phone: editedUser.phone,
-        location: editedUser.location,
-        certifications: editedUser.certifications,
-        policeVerification: editedUser.policeVerification,
-        specializations: editedUser.specializations,
-      });
-      Alert.alert('Success', 'Profile updated successfully');
+      };
+
+      // Only add location if it exists and has an address
+      if (editedUser.location?.address) {
+        updateData.location = editedUser.location;
+      }
+
+      // Only add profileImage if it exists
+      if (editedUser.profileImage) {
+        updateData.profileImage = editedUser.profileImage;
+      }
+
+      console.log('📤 Update data:', updateData);
+      
+      // Save to Firebase (Firestore + AsyncStorage) for persistence
+      await AuthService.updateUserProfile(user.id, updateData);
+      
+      // Update the original user object
+      user.name = editedUser.name;
+      user.phone = editedUser.phone;
+      user.location = editedUser.location;
+      if (editedUser.profileImage) {
+        user.profileImage = editedUser.profileImage;
+      }
+      
+      console.log('✅ Profile saved successfully!');
+      Alert.alert('Success', 'Profile updated successfully! 🎉');
       setIsEditing(false);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update profile');
+    } catch (error: any) {
+      console.log('❌ Profile update error:', error);
+      Alert.alert('Error', error?.message || 'Failed to update profile. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handlePasswordChange = async () => {
+    if (!newPassword || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all password fields');
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
-    if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+    
+    const passwordValidation = UserService.validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      Alert.alert('Invalid Password', passwordValidation.message);
       return;
     }
+
+    setIsSaving(true);
     try {
-      // In real implementation, update password
-      Alert.alert('Success', 'Password updated successfully');
-      setNewPassword('');
-      setConfirmPassword('');
-      setShowPasswordSection(false);
+      console.log('🔒 Updating password for:', user.email);
+      
+      // Update password in Firebase Auth AND UserService
+      const result = await UserService.resetPassword(user.email, newPassword);
+      
+      if (result.success) {
+        console.log('✅ Password updated successfully!');
+        Alert.alert(
+          'Success', 
+          'Password updated successfully! 🔒\n\nYou can now use your new password to login.',
+          [{ text: 'OK', onPress: () => {
+            setNewPassword('');
+            setConfirmPassword('');
+            setShowPasswordSection(false);
+          }}]
+        );
+      } else {
+        console.log('❌ Password update failed:', result.message);
+        Alert.alert('Error', result.message || 'Failed to update password');
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to update password');
+      console.log('❌ Password update error:', error);
+      Alert.alert('Error', 'Failed to update password. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -78,15 +371,25 @@ const VolunteerProfileScreen: React.FC<VolunteerProfileScreenProps> = ({ user, o
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
-          <Image
-            source={user.profileImage ? { uri: user.profileImage } : require('../../../assets/icon.png')}
-            style={styles.avatar}
-          />
-          <TouchableOpacity style={styles.editAvatarButton}>
+          {isUploadingImage ? (
+            <View style={styles.avatar}>
+              <ActivityIndicator size="large" color="#34C759" />
+            </View>
+          ) : (
+            <Image
+              source={profileImageUri ? { uri: profileImageUri } : require('../../../assets/icon.png')}
+              style={styles.avatar}
+            />
+          )}
+          <TouchableOpacity 
+            style={styles.editAvatarButton}
+            onPress={handleSelectPhoto}
+            disabled={isUploadingImage}
+          >
             <Ionicons name="camera" size={16} color="white" />
           </TouchableOpacity>
         </View>
-        <Text style={styles.userName}>{user.name}</Text>
+        <Text style={styles.userName}>{editedUser.name}</Text>
         <Text style={styles.userRole}>Volunteer/Helper</Text>
         <View style={styles.statusContainer}>
           <View style={[styles.statusDot, { backgroundColor: user.isActive ? '#34C759' : '#FF3B30' }]} />
@@ -102,8 +405,10 @@ const VolunteerProfileScreen: React.FC<VolunteerProfileScreenProps> = ({ user, o
             style={styles.editButton}
             onPress={() => setIsEditing(!isEditing)}
           >
-            <Ionicons name={isEditing ? "checkmark" : "pencil"} size={20} color="#34C759" />
-            <Text style={styles.editButtonText}>{isEditing ? 'Save' : 'Edit'}</Text>
+            <Ionicons name={isEditing ? "close" : "pencil"} size={20} color={isEditing ? "#FF3B30" : "#34C759"} />
+            <Text style={[styles.editButtonText, { color: isEditing ? "#FF3B30" : "#34C759" }]}>
+              {isEditing ? 'Cancel' : 'Edit'}
+            </Text>
           </TouchableOpacity>
         </View>
         {isEditing ? (
@@ -144,8 +449,16 @@ const VolunteerProfileScreen: React.FC<VolunteerProfileScreenProps> = ({ user, o
                 multiline
               />
             </View>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-              <Text style={styles.saveButtonText}>Save Changes</Text>
+            <TouchableOpacity 
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
+              onPress={handleSaveProfile}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.saveButtonText}>💾 Save Changes</Text>
+              )}
             </TouchableOpacity>
           </View>
         ) : (
@@ -217,8 +530,16 @@ const VolunteerProfileScreen: React.FC<VolunteerProfileScreenProps> = ({ user, o
                 secureTextEntry
               />
             </View>
-            <TouchableOpacity style={styles.passwordButton} onPress={handlePasswordChange}>
-              <Text style={styles.passwordButtonText}>Update Password</Text>
+            <TouchableOpacity 
+              style={[styles.passwordButton, isSaving && styles.passwordButtonDisabled]} 
+              onPress={handlePasswordChange}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.passwordButtonText}>🔒 Update Password</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -310,12 +631,14 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: '#f9f9f9' },
   saveButton: { backgroundColor: '#34C759', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  saveButtonDisabled: { backgroundColor: '#ccc', opacity: 0.6 },
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 },
   infoContent: { flex: 1, marginLeft: 15 },
   infoLabel: { fontSize: 14, color: '#666', marginBottom: 2 },
   infoValue: { fontSize: 16, color: '#333', fontWeight: '500' },
   passwordButton: { backgroundColor: '#007AFF', padding: 15, borderRadius: 8, alignItems: 'center', marginTop: 10 },
   passwordButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  passwordButtonDisabled: { backgroundColor: '#ccc', opacity: 0.6 },
   certRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   certContent: { flex: 1, marginLeft: 10 },
   certLabel: { fontSize: 14, color: '#34C759', fontWeight: 'bold' },
