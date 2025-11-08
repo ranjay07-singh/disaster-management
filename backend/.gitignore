@@ -1,0 +1,151 @@
+# ============================================================================
+# BACKEND (SPRING BOOT + MAVEN) - .GITIGNORE
+# ============================================================================
+# Java 17 + Spring Boot 3.2.0 + PostgreSQL + AWS
+# ============================================================================
+
+# ============================================================================
+# 🔴 CRITICAL - SENSITIVE CONFIGURATION
+# ============================================================================
+# Application configuration with database credentials
+src/main/resources/application.yml
+src/main/resources/application.properties
+src/main/resources/application-*.yml
+src/main/resources/application-*.properties
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# AWS Credentials
+.aws/
+aws-config.json
+
+# Database credentials
+db-config.json
+
+# Service account keys
+service-account-key.json
+*.pem
+
+# ============================================================================
+# 📦 MAVEN BUILD ARTIFACTS
+# ============================================================================
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Maven wrapper (keep the properties)
+!.mvn/wrapper/maven-wrapper.properties
+
+# ============================================================================
+# ☕ JAVA COMPILED FILES
+# ============================================================================
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+# ============================================================================
+# 🔧 IDE & EDITOR FILES
+# ============================================================================
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# VS Code
+.vscode/
+.history/
+
+# ============================================================================
+# 📝 LOGS & OUTPUT
+# ============================================================================
+*.log
+logs/
+nohup.out
+spring.log
+
+# ============================================================================
+# 🧪 TESTING
+# ============================================================================
+# Test output
+test-output/
+test-results/
+
+# ============================================================================
+# 🗄️ DATABASE
+# ============================================================================
+# H2 Database (if used for testing)
+*.h2.db
+*.trace.db
+
+# PostgreSQL dumps
+*.sql
+*.pgsql
+
+# ============================================================================
+# 🔐 SECURITY
+# ============================================================================
+# SSL/TLS certificates
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# ============================================================================
+# 🗂️ TEMPORARY FILES
+# ============================================================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+
+# ============================================================================
+# 💻 OS SPECIFIC
+# ============================================================================
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ============================================================================
+# END OF BACKEND .GITIGNORE
+# ============================================================================

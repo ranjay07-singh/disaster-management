@@ -1,54 +1,564 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ============================================================================
+# DISASTER MANAGEMENT SYSTEM - COMPREHENSIVE .GITIGNORE
+# ============================================================================
+# Generated after analyzing entire codebase (Frontend + Backend)
+# React Native/Expo + Spring Boot/Maven
+# Last updated: 2025-11-08
+# ============================================================================
 
-# dependencies
-node_modules/
+# ============================================================================
+# 🔴 CRITICAL SECURITY - SENSITIVE FILES (DO NOT COMMIT!)
+# ============================================================================
+# These files contain API keys, passwords, and credentials
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+# Firebase Configuration (EXPOSED API KEYS!)
+src/services/firebase.ts
+src/services/firebase.js
+firebase-config.ts
+firebaseConfig.ts
+firebase-config.json
+google-services.json
+GoogleService-Info.plist
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+# Backend Application Configuration (DATABASE CREDENTIALS!)
+backend/src/main/resources/application.yml
+backend/src/main/resources/application.properties
+backend/src/main/resources/application-*.yml
+backend/src/main/resources/application-*.properties
 
-# Metro
-.metro-health-check*
+# API Configuration Files
+src/config/ApiConfig.ts
+src/config/ApiConfig.js
+api-config.json
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
+# Environment Variables
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+.env.test
+.env.test.local
 .env*.local
 
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android
-
-# Firebase API config
-src/services/firebase.ts
-
-# backend
-backend/DEPLOYMENT_GUIDE.md
-test-db-connection.js
-NEXT_STEPS_ROADMAP.md
-MONITORING_PROFILE_IMPROVEMENTS.md
-AWS_PHASE2_SETUP_GUIDE.md
-AWS_BACKEND_SETUP_GUIDE.md
-API_GATEWAY_COMPLETE.md
+# AWS Credentials
+.aws/
+aws-exports.js
+aws-config.json
 api-gateway-config.json
+awscli-bundle/
+
+# Database Credentials
+database.config.js
+database.config.ts
+db-config.ts
+db-config.json
+
+# Security & Authentication
+.secrets/
+secrets.json
+credentials.json
+service-account-key.json
+private-key.pem
+*.pem
+auth-config.json
+.auth-token
+
+# SSL Certificates & Keys
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# ============================================================================
+# 📦 DEPENDENCIES & PACKAGE MANAGERS
+# ============================================================================
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Lock files (optional - remove if you want to track them)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm-store/
+
+# Bower (legacy)
+bower_components/
+
+# ============================================================================
+# 📱 EXPO & REACT NATIVE
+# ============================================================================
+# Expo
+.expo/
+.expo-shared/
+expo-env.d.ts
+.metro-health-check*
+dist/
+web-build/
+
+# React Native
+.react-native/
+
+# Bundle artifacts
+*.jsbundle
+
+# ============================================================================
+# 🤖 ANDROID BUILD ARTIFACTS
+# ============================================================================
+/android/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.hprof
+
+# Gradle
+.gradle/
+build/
+local.properties
+
+# Android Studio
+*.iml
+.idea/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Signing files
+*.jks
+*.keystore
+
+# Proguard
+proguard/
+
+# ============================================================================
+# 🍎 iOS BUILD ARTIFACTS
+# ============================================================================
+/ios/
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
+Podfile.lock
+*.xcodeproj
+*.xcworkspace
+*.pbxproj
+
+# CocoaPods
+Pods/
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.build/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Certificates & Provisioning
+*.mobileprovision
+*.cer
+*.certSigningRequest
+*.p8
+*.orig.*
+
+# ============================================================================
+# ☕ JAVA & MAVEN (BACKEND)
+# ============================================================================
+# Maven Build Output
+backend/target/
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Java Compiled Classes
+*.class
+*.jar
+!backend/.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+
+# Maven Wrapper
+!backend/.mvn/wrapper/maven-wrapper.properties
+
+# Eclipse
+backend/.classpath
+backend/.project
+backend/.settings/
+.project
+.classpath
+.settings/
+bin/
+
+# IntelliJ IDEA (Backend)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# ============================================================================
+# 🔧 TYPESCRIPT & BUILD OUTPUTS
+# ============================================================================
+*.tsbuildinfo
+*.js.map
+*.d.ts.map
+tsconfig.tsbuildinfo
+
+# Build outputs
+dist/
+build/
+out/
+lib/
+
+# ============================================================================
+# 🖥️ IDE & EDITOR FILES
+# ============================================================================
+# Visual Studio Code
+.vscode/
+.history/
+*.code-workspace
+
+# IntelliJ IDEA (Frontend)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.*.sw[a-z]
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ============================================================================
+# 💻 OPERATING SYSTEM FILES
+# ============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# ============================================================================
+# 📝 LOGS & DEBUGGING
+# ============================================================================
+# Application logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Backend logs (Java/Spring Boot)
+backend/*.log
+backend/logs/
+backend/nohup.out
+nohup.out
+spring.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# ============================================================================
+# 🧪 TESTING & COVERAGE
+# ============================================================================
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Test results
+junit.xml
+test-results/
+test-output/
+.jest/
+jest-results/
+
+# E2E Testing
+e2e-results/
+playwright-report/
+test-results/
+
+# ============================================================================
+# 📊 DATABASES
+# ============================================================================
+# SQLite
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# PostgreSQL
+pg_data/
+postgres-data/
+*.pgsql
+
+# MySQL
+*.mysql
+*.sql
+
+# MongoDB
+*.mongo
+data/db/
+
+# Redis
+dump.rdb
+
+# H2 Database
+*.h2.db
+*.trace.db
+
+# ============================================================================
+# 🗂️ TEMPORARY & CACHE FILES
+# ============================================================================
+.cache/
+.tmp/
+.temp/
+tmp/
+temp/
+*.tmp
+*.temp
+*.cache
+*.swp
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.VolumeIcon.icns
+
+# ============================================================================
+# 📦 BACKUP & ARCHIVE FILES
+# ============================================================================
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+*.copy
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+*.rar
+*.7z
+*.iso
+
+# ============================================================================
+# 🌐 FRAMEWORK-SPECIFIC
+# ============================================================================
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+.output/
+
+# Gatsby
+.cache/
+public/
+
+# Webpack
+.webpack/
+webpack-assets.json
+webpack-stats.json
+
+# Parcel
+.parcel-cache/
+
+# Rollup
+.rpt2_cache/
+
+# Storybook
+storybook-static/
+
+# ============================================================================
+# 🔐 SECURITY SCANNING & TOOLS
+# ============================================================================
+# Security scanning results
+.snyk
+.snyk.d.ts
+snyk-*.json
+
+# Dependency check
+dependency-check-report.html
+
+# SonarQube
+.sonar/
+.sonarqube/
+
+# ============================================================================
+# 📸 MEDIA FILES (LARGE FILES - OPTIONAL)
+# ============================================================================
+# Uncomment if you don't want to track large media files
+# *.mov
+# *.mp4
+# *.avi
+# *.wmv
+# *.flv
+# *.mkv
+# *.webm
+# *.wav
+# *.mp3
+# *.ogg
+# *.flac
+
+# ============================================================================
+# 📚 DOCUMENTATION (OPTIONAL - PROJECT SPECIFIC)
+# ============================================================================
+# Uncomment to exclude documentation from version control
+# docs/_build/
+# site/
+
+# Keep these documentation files (currently tracked):
+# backend/DEPLOYMENT_GUIDE.md
+# backend/AWS_BACKEND_SETUP_GUIDE.md
+# backend/API_GATEWAY_COMPLETE.md
+# NEXT_STEPS_ROADMAP.md
+# MONITORING_PROFILE_IMPROVEMENTS.md
+# AWS_PHASE2_SETUP_GUIDE.md
+
+# ============================================================================
+# 🚀 DEPLOYMENT & CI/CD
+# ============================================================================
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Serverless
+.serverless/
+
+# ============================================================================
+# 🎯 PROJECT-SPECIFIC EXCLUSIONS
+# ============================================================================
+# Add custom files specific to this Disaster Management project
+
+# Test database connection scripts
+test-db-connection.js
+test-connection.js
+
+# Local development scripts
+local-*.js
+local-*.ts
+
+# Personal notes
+NOTES.md
+TODO.md
+SCRATCH.md
+
+# ============================================================================
+# END OF .GITIGNORE
+# ============================================================================
